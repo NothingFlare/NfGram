@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.ui;
@@ -13,6 +12,8 @@ import static org.telegram.messenger.LocaleController.formatPluralStringComma;
 import static org.telegram.messenger.LocaleController.formatString;
 import static org.telegram.messenger.LocaleController.getString;
 import static org.telegram.ui.Components.AlertsCreator.createClearOrDeleteDialogsAlert;
+
+import com.radolyn.ayugram.AyuAppearanceConfig;
 
 import android.Manifest;
 import android.animation.Animator;
@@ -654,6 +655,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private boolean isPremiumHintUpgrade;
 
     private AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable statusDrawable;
+    private String actionBarDefaultTitle; // AyuGram hook
     private DrawerProfileCell.AnimatedStatusView animatedStatusView;
     public RightSlidingDialogContainer rightSlidingDialogContainer;
 
@@ -3073,7 +3075,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
             @Override
             public void onPreToggleSearch() {
-                if (!isSpeedItemCreated) {
+                if (!isSpeedItemCreated && false) {
                     isSpeedItemCreated = true;
                     FrameLayout searchContainer = (FrameLayout) searchItem.getSearchClearButton().getParent();
                     speedItem = new ActionBarMenuItem(context, menu, Theme.getColor(Theme.key_actionBarActionModeDefaultSelector), Theme.getColor(Theme.key_actionBarActionModeDefaultIcon));
@@ -3290,11 +3292,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             } else {
                 statusDrawable = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(null, dp(26));
                 statusDrawable.center = true;
-                if (BuildVars.DEBUG_VERSION) {
-                    actionBar.setTitle(getString(R.string.AppNameBeta), statusDrawable);
-                } else {
-                    actionBar.setTitle(getString(R.string.AppName), statusDrawable);
-                }
+                actionBar.setTitle(actionBarDefaultTitle = com.radolyn.ayugram.AyuLocaleUtils.getActionBarTitle(), statusDrawable);
                 updateStatus(UserConfig.getInstance(currentAccount).getCurrentUser(), false);
             }
             if (folderId == 0) {
@@ -3426,6 +3424,29 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     switchToCurrentSelectedMode(true);
                     animatingForward = forward;
                 }
+
+                // --- AyuGram hook
+                private int lastTitleType = AyuAppearanceConfig.tabIcons;
+
+                @Override
+                public void onTabSelected(FilterTabsView.Tab tab, boolean forward, boolean animated) {
+                    if (AyuAppearanceConfig.tabIcons != 2) {
+                        if (lastTitleType == 2) {
+                            actionBar.setTitle(actionBarDefaultTitle = com.radolyn.ayugram.AyuLocaleUtils.getActionBarTitle(), statusDrawable);
+                            lastTitleType = AyuAppearanceConfig.tabIcons;
+                        }
+                        return;
+                    }
+                    if (!selectedDialogs.isEmpty()) {
+                        return;
+                    }
+                    if (animated) {
+                        actionBar.setTitleAnimatedX(tab.isDefault ? actionBarDefaultTitle : tab.realTitle, tab.isDefault ? statusDrawable : null, forward, 350);
+                    } else {
+                        actionBar.setTitle(tab.isDefault ? actionBarDefaultTitle : tab.realTitle, tab.isDefault ? statusDrawable : null);
+                    }
+                }
+                // --- AyuGram hook
 
                 @Override
                 public boolean canPerformActions() {
@@ -6696,6 +6717,15 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 }
 
                 filterTabsView.resetTabId();
+                // --- AyuGram hook
+                if (actionBarDefaultTitle != null && !actionBarDefaultTitle.equals(actionBar.getTitle())) {
+                    if (animated) {
+                        actionBar.setTitleAnimatedX(actionBarDefaultTitle, statusDrawable, false, 350);
+                    } else {
+                        actionBar.setTitle(actionBarDefaultTitle, statusDrawable);
+                    }
+                }
+                // --- AyuGram hook
             }
             updateDrawerSwipeEnabled();
         }
@@ -10638,6 +10668,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         } else if (id == NotificationCenter.userEmojiStatusUpdated) {
             updateStatus((TLRPC.User) args[0], true);
         } else if (id == NotificationCenter.currentUserPremiumStatusChanged) {
+            actionBar.setTitle(actionBarDefaultTitle = com.radolyn.ayugram.AyuLocaleUtils.getActionBarTitle(), statusDrawable);
             updateStatus(UserConfig.getInstance(account).getCurrentUser(), true);
             updateStoriesPosting();
         } else if (id == NotificationCenter.onDatabaseReset) {

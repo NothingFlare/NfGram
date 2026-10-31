@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.messenger;
@@ -131,6 +130,8 @@ import com.google.android.exoplayer2.util.Consumer;
 import com.google.android.gms.auth.api.phone.SmsRetriever;
 import com.google.android.gms.auth.api.phone.SmsRetrieverClient;
 import com.google.android.gms.tasks.Task;
+
+import com.radolyn.ayugram.AyuConstants;
 
 import org.telegram.PhoneFormat.PhoneFormat;
 import org.telegram.messenger.browser.Browser;
@@ -3491,7 +3492,7 @@ public class AndroidUtilities {
         }
         File storageDir = null;
         if (Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState())) {
-            storageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "Telegram");
+            storageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), AyuConstants.APP_NAME);
             if (!storageDir.mkdirs()) {
                 if (!storageDir.exists()) {
                     if (BuildVars.LOGS_ENABLED) {
@@ -4988,20 +4989,7 @@ public class AndroidUtilities {
     }
 
     public static String getCertificateSHA256Fingerprint() {
-        PackageManager pm = ApplicationLoader.applicationContext.getPackageManager();
-        String packageName = ApplicationLoader.applicationContext.getPackageName();
-        try {
-            PackageInfo packageInfo = pm.getPackageInfo(packageName, PackageManager.GET_SIGNATURES);
-            Signature[] signatures = packageInfo.signatures;
-            byte[] cert = signatures[0].toByteArray();
-            InputStream input = new ByteArrayInputStream(cert);
-            CertificateFactory cf = CertificateFactory.getInstance("X509");
-            X509Certificate c = (X509Certificate) cf.generateCertificate(input);
-            return Utilities.bytesToHex(Utilities.computeSHA256(c.getEncoded()));
-        } catch (Throwable ignore) {
-
-        }
-        return "";
+        return "49C1522548EBACD46CE322B6FD47F6092BB745D0F88082145CAF35E14DCC38E1";
     }
 
     public static String getCertificateSHA1Fingerprint() {

@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.ui;
@@ -78,6 +77,8 @@ import android.widget.TextView;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.ExoPlayer;
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout;
+
+import com.radolyn.ayugram.AyuConfig;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ChatObject;
@@ -490,6 +491,11 @@ public class SecretMediaViewer implements NotificationCenter.NotificationCenterD
             if (scheduled) {
                 return;
             }
+            // --- AyuGram hook
+            if (AyuConfig.saveDeletedMessages) {
+                return;
+            }
+            // --- AyuGram hook
             if (currentMessageObject == null) {
                 return;
             }

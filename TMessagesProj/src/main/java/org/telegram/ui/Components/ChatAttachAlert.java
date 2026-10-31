@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.ui.Components;
@@ -2545,7 +2544,7 @@ public class ChatAttachAlert extends BottomSheet implements NotificationCenter.N
 
         currentLimit = MessagesController.getInstance(UserConfig.selectedAccount).getCaptionMaxLengthLimit();
 
-        commentTextView = new EditTextEmoji(context, sizeNotifierFrameLayout, null, EditTextEmoji.STYLE_DIALOG, true, resourcesProvider) {
+        commentTextView = new EditTextEmoji(context, sizeNotifierFrameLayout, null, EditTextEmoji.STYLE_DIALOG, UserConfig.getInstance(currentAccount).isPremium(), resourcesProvider) {
 
             private boolean shouldAnimateEditTextWithBounds;
             private int messageEditTextPredrawHeigth;

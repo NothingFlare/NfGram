@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 apply plugin: 'com.android.application'
 
 repositories {
@@ -46,8 +53,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        1_8
+        targetCompatibility
 
         coreLibraryDesugaringEnabled true
     }
@@ -116,7 +123,7 @@ android {
     productFlavors {
         bundleAfat {
             ndk {
-                abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+                abiFilters "arm64-v8a", "x86_64"
             }
             ext {
                 abiVersionCode = 1
@@ -124,7 +131,7 @@ android {
         }
         bundleAfat_SDK23 {
             ndk {
-                abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+                abiFilters "arm64-v8a", "x86_64"
             }
             minSdkVersion 23
             ext {
@@ -133,7 +140,7 @@ android {
         }
         afat {
             ndk {
-                abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+                abiFilters "arm64-v8a", "x86_64"
             }
             ext {
                 abiVersionCode = 9
@@ -158,7 +165,7 @@ android {
     }
 
     defaultConfig {
-        minSdkVersion 19
+        minSdkVersion 24
         targetSdkVersion 34
         versionName APP_VERSION_NAME
         ndkVersion "21.4.7075529"

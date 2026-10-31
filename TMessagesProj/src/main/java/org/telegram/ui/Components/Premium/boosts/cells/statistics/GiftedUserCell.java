@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.ui.Components.Premium.boosts.cells.statistics;
 
 import static org.telegram.tgnet.tl.TL_stories.Boost.NO_USER_ID;

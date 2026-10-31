@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.messenger.video;
 
 import com.googlecode.mp4parser.h264.read.CAVLCReader;

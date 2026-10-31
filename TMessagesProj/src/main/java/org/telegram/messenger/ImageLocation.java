@@ -1,4 +1,13 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.messenger;
+
+import com.radolyn.ayugram.utils.AyuFileLocation;
 
 import org.telegram.tgnet.TLObject;
 import org.telegram.tgnet.TLRPC;
@@ -118,6 +127,13 @@ public class ImageLocation {
         } else if (photoSize == null || photo == null) {
             return null;
         }
+
+        // --- AyuGram hook
+        if (photoSize.location instanceof AyuFileLocation) {
+            return ImageLocation.getForPath(((AyuFileLocation) photoSize.location).path);
+        }
+        // --- AyuGram hook
+
         int dc_id;
         if (photo.dc_id != 0) {
             dc_id = photo.dc_id;

@@ -1,16 +1,17 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.messenger;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlarmManager;
 import android.app.Application;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -28,6 +29,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.util.Log;
 import android.telephony.TelephonyManager;
 import android.view.ViewGroup;
 
@@ -38,6 +40,9 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 
 import org.json.JSONObject;
+import com.radolyn.ayugram.AyuConfig;
+import com.radolyn.ayugram.sync.AyuSyncController;
+
 import org.telegram.messenger.voip.VideoCapturerDevice;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
@@ -54,6 +59,7 @@ import java.util.ArrayList;
 import java.util.Locale;
 
 public class ApplicationLoader extends Application {
+    private static PendingIntent pendingIntent;
 
     public static ApplicationLoader applicationLoaderInstance;
 
@@ -161,7 +167,7 @@ public class ApplicationLoader extends Application {
         } catch (Exception e) {
             FileLog.e(e);
         }
-        return new File("/data/data/org.telegram.messenger/files");
+        return new File("/data/data/com.radolyn.ayugram/files");
     }
 
     public static void postInitApplication() {
@@ -249,6 +255,9 @@ public class ApplicationLoader extends Application {
             DownloadController.getInstance(a);
         }
         BillingController.getInstance().startConnection();
+
+        // AyuGram: start sync
+        AyuSyncController.create();
     }
 
     public ApplicationLoader() {
@@ -332,13 +341,33 @@ public class ApplicationLoader extends Application {
             enabled = MessagesController.getMainSettings(UserConfig.selectedAccount).getBoolean("keepAliveService", false);
         }
         if (enabled) {
+            if (AyuConfig.keepAliveService) {
+                Log.d("TFOSS", "Trying to start push service every minute");
+                AlarmManager am = (AlarmManager) applicationContext.getSystemService(Context.ALARM_SERVICE);
+                Intent i = new Intent(applicationContext, NotificationsService.class);
+                pendingIntent = PendingIntent.getBroadcast(applicationContext, 0, i, PendingIntent.FLAG_MUTABLE);
+
+                am.cancel(pendingIntent);
+                am.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), 60000, pendingIntent);
+            }
+
             try {
+                Log.d("TFOSS", "Starting push service...");
                 applicationContext.startService(new Intent(applicationContext, NotificationsService.class));
             } catch (Throwable ignore) {
-
+                Log.d("TFOSS", "Failed to start push service");
             }
         } else {
             applicationContext.stopService(new Intent(applicationContext, NotificationsService.class));
+
+            if (AyuConfig.keepAliveService) {
+                PendingIntent pintent = PendingIntent.getService(applicationContext, 0, new Intent(applicationContext, NotificationsService.class), PendingIntent.FLAG_MUTABLE);
+                AlarmManager alarm = (AlarmManager) applicationContext.getSystemService(Context.ALARM_SERVICE);
+                alarm.cancel(pintent);
+                if (pendingIntent != null) {
+                    alarm.cancel(pendingIntent);
+                }
+            }
         }
     }
 

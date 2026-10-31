@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.messenger;
 
 import android.Manifest;
@@ -21,6 +28,8 @@ import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+
+import com.radolyn.ayugram.AyuConstants;
 
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.BottomSheet;
@@ -97,8 +106,8 @@ public class FilesMigrationService extends Service {
         }
 
         File newPath = ApplicationLoader.applicationContext.getExternalFilesDir(null);
-        File telegramPath = new File(newPath, "Telegram");
-        File oldPath = new File(path, "Telegram");
+        File telegramPath = new File(newPath, AyuConstants.APP_NAME);
+        File oldPath = new File(path, AyuConstants.APP_NAME);
 
         totalFilesCount = getFilesCount(oldPath);
 
@@ -204,7 +213,7 @@ public class FilesMigrationService extends Service {
                     }
                 }
             }
-            File oldDirectory = new File(path, "Telegram");
+            File oldDirectory = new File(path, AyuConstants.APP_NAME);
             hasOldFolder = oldDirectory.exists();
         }
         if (hasOldFolder) {

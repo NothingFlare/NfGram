@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.messenger;
@@ -19,6 +18,8 @@ import android.util.Pair;
 import android.util.SparseArray;
 
 import androidx.collection.LongSparseArray;
+
+import com.radolyn.ayugram.AyuFilter;
 
 import org.telegram.SQLite.SQLiteCursor;
 import org.telegram.SQLite.SQLitePreparedStatement;
@@ -760,6 +761,14 @@ public class DownloadController extends BaseController implements NotificationCe
         if (message == null || message.media instanceof TLRPC.TL_messageMediaStory) {
             return canPreloadStories() ? 2 : 0;
         }
+
+        // --- AyuGram hook
+        var isFiltered = AyuFilter.isFiltered(new MessageObject(currentAccount, message, false, false), null);
+        if (isFiltered) {
+            return 0;
+        }
+        // --- AyuGram hook
+
         int type;
         boolean isVideo;
         if ((isVideo = MessageObject.isVideoMessage(message)) || MessageObject.isGifMessage(message) || MessageObject.isRoundVideoMessage(message) || MessageObject.isGameMessage(message)) {

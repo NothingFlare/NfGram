@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.messenger;
@@ -13,6 +12,8 @@ import android.content.SharedPreferences;
 import android.os.SystemClock;
 import android.util.Base64;
 import android.util.LongSparseArray;
+
+import com.radolyn.ayugram.AyuConfig;
 
 import com.google.android.exoplayer2.util.Log;
 
@@ -561,9 +562,9 @@ public class UserConfig extends BaseController {
     public boolean isPremium() {
         TLRPC.User user = currentUser;
         if (user == null) {
-            return false;
+            return AyuConfig.localPremium;
         }
-        return user.premium;
+        return AyuConfig.localPremium || user.premium;
     }
 
     public Long getEmojiStatus() {

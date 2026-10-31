@@ -1,39 +1,268 @@
-## Telegram messenger for Android
+<div align="center">
 
-[Telegram](https://telegram.org) is a messaging app with a focus on speed and security. It’s superfast, simple and free.
-This repo contains the official source code for [Telegram App for Android](https://play.google.com/store/apps/details?id=org.telegram.messenger).
+# NfGram
 
-## Creating your Telegram Application
+**An advanced, high-performance Telegram client fork with enhanced privacy, biometric face unlock, battery optimizations, authentic exteraGram personalization, and a powerful Python plugin engine.**
 
-We welcome all developers to use our API and source code to create applications on our platform.
-There are several things we require from **all developers** for the moment.
+[![Telegram Version](https://img.shields.io/badge/Telegram-12.10.6-2b2b2b.svg?style=flat-square)](https://telegram.org)
+[![Android Version](https://img.shields.io/badge/Android-8.0+--15+-2b2b2b.svg?style=flat-square)](https://www.android.com)
+[![Architecture](https://img.shields.io/badge/Arch-arm64--v8a%20%7C%20armeabi--v7a-2b2b2b.svg?style=flat-square)]()
+[![Release](https://img.shields.io/badge/Release-12.10.6-2b2b2b.svg?style=flat-square)]()
+[![License](https://img.shields.io/badge/License-GPL--3.0-2b2b2b.svg?style=flat-square)](LICENSE)
 
-1. [**Obtain your own api_id**](https://core.telegram.org/api/obtaining_api_id) for your application.
-2. Please **do not** use the name Telegram for your app — or make sure your users understand that it is unofficial.
-3. Kindly **do not** use our standard logo (white paper plane in a blue circle) as your app's logo.
-3. Please study our [**security guidelines**](https://core.telegram.org/mtproto/security_guidelines) and take good care of your users' data and privacy.
-4. Please remember to publish **your** code too in order to comply with the licences.
+[Overview](#overview) • [Fork Notice](#fork-notice) • [Key Features](#key-features) • [Compatibility](#compatibility) • [Building from Source](#building-from-source) • [License & Attribution](#license--attribution) • [Русская версия](#русская-версия)
 
-### API, Protocol documentation
+</div>
 
-Telegram API manuals: https://core.telegram.org/api
+---
 
-MTproto protocol manuals: https://core.telegram.org/mtproto
+## Overview
 
-### Compilation Guide
+**NfGram** is a feature-rich, high-performance open-source client fork built on the foundation of **AyuGram** and **Telegram for Android**, incorporating custom modifications, visual aesthetics from **exteraGram**, and cutting-edge client enhancements.
 
-**Note**: In order to support [reproducible builds](https://core.telegram.org/reproducible-builds), this repo contains dummy release.keystore,  google-services.json and filled variables inside BuildVars.java. Before publishing your own APKs please make sure to replace all these files with your own.
+NfGram bridges the gap between maximum messaging speed, uncompromising privacy, and seamless modern Android integration. It introduces multi-threaded parallel uploads, biometric Face Unlock authentication with hardware fallback, aggressive zero-overhead battery optimizations, an authentic exteraGram settings hub, and an error-resilient Python plugin runtime powered by Chaquopy.
 
-You will require Android Studio 3.4, Android NDK rev. 20 and Android SDK 8.1
+---
 
-1. Download the Telegram source code from https://github.com/DrKLO/Telegram ( git clone https://github.com/DrKLO/Telegram.git )
-2. Copy your release.keystore into TMessagesProj/config
-3. Fill out RELEASE_KEY_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_STORE_PASSWORD in gradle.properties to access your  release.keystore
-4.  Go to https://console.firebase.google.com/, create two android apps with application IDs org.telegram.messenger and org.telegram.messenger.beta, turn on firebase messaging and download google-services.json, which should be copied to the same folder as TMessagesProj.
-5. Open the project in the Studio (note that it should be opened, NOT imported).
-6. Fill out values in TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java – there’s a link for each of the variables showing where and which data to obtain.
-7. You are ready to compile Telegram.
+## Fork Notice
 
-### Localization
+> [!IMPORTANT]
+> **NfGram is an independent open-source fork of [AyuGram](https://github.com/AyuGram/AyuGramAndroid) and [Telegram for Android](https://github.com/DrKLO/Telegram), incorporating visual and functional components from [exteraGram](https://github.com/exteraSquad/exteraGram).**
+> - This project is distributed under the terms of the **GNU General Public License v3.0 (GNU GPLv3)**.
+> - NfGram is **not** an official release of Telegram FZ-LLC, the AyuGram development team, or exteraSquad.
+> - Modifications, biometric face unlock integrations, parallel uploads, battery optimizations, and custom enhancements are developed and maintained by **NothingFlare**.
+> - Inquiries, bug reports, and pull requests relating to this fork should be submitted directly to this repository.
 
-We moved all translations to https://translations.telegram.org/en/android/. Please use it.
+---
+
+## Key Features
+
+- **High-Speed Parallel Upload Engine (`ParallelDispatchQueue`)**
+  - Replaces serial upload bottlenecks with a dynamic multi-threaded work pool.
+  - Media files, documents, and large chunks stream concurrently across CPU cores, saturating modern high-bandwidth connections without UI freezes or frame drops.
+
+- **Biometric Face Unlock & Passcode Integration**
+  - Native integration with AndroidX `BiometricPrompt` supporting Class 3 (Strong) and Class 2 biometric sensors.
+  - Supports face recognition unlock alongside fingerprint and device credentials.
+  - Seamless fallback between device PIN/password and biometric prompt, ensuring instant access without compromising chat protection.
+
+- **Aggressive Battery & Resource Optimizations**
+  - **Sensors & Polling**: Neutralized background orientation/ambient sensor polling when unnecessary, eliminating battery drain in idle states.
+  - **GPU Shader Overhead**: Disabled heavy real-time GPU chat blurs (`canBlurChat`, `chatBlurEnabled`, `useNewBlur`), saving graphics pipeline cycles and battery temperature.
+  - **Alarm Wakeups**: Replaced aggressive RTC wakeup alarms with passive non-wakeup timers (15m batching), significantly reducing deep-sleep wake locks.
+  - **System Power Saver Sync**: `powerSaverFollowSystem` enabled by default to immediately honor Android battery saver modes.
+  - **Logging Elimination**: Fully suppressed verbose internal logging (`LOGS_ENABLED = false`) to reduce unnecessary flash I/O cycles.
+
+- **Authentic exteraGram Personalization Hub**
+  - Fully redesigned settings hub reflecting authentic exteraGram aesthetics.
+  - Dedicated hub with custom brand vectors, authentic color palette (`#ffe83030`), and streamlined navigation.
+  - Custom category headers, distinct icons, and direct access to both AyuGram privacy features and exteraGram modifications.
+
+- **Resilient Python Plugin Engine**
+  - Embedded Chaquopy runtime with lazy on-demand SDK initialization (zero impact on cold app launch times).
+  - Robust module resolution: automatically injects plugin directories into `sys.path` so third-party dependencies load seamlessly.
+  - Crash-proof metadata parsing: prevents malformed plugin packages from crashing the client or triggering bootloops.
+  - Fully functional toggle switches with real-time UI state synchronization and clean lifecycle management (`init` / `shutdown`).
+
+- **Ghost Mode & Message History (Inherited from AyuGram)**
+  - View deleted and edited messages with full revision history.
+  - Send without read marks, conceal online status, and prevent typing indicators.
+  - Screenshot protection bypass in secret chats and restricted media channels.
+
+---
+
+## Compatibility
+
+| Environment | Supported Versions | Details |
+| :--- | :--- | :--- |
+| **Android OS** | Android 8.0 (API 26) – Android 15+ (API 35+) | Full support for modern Android runtimes, ART JIT, and dynamic permission models |
+| **Architectures** | `arm64-v8a`, `armeabi-v7a` | Native binaries optimized with NEON vectorization |
+| **Biometrics** | Fingerprint, Face Recognition, Device PIN | Class 2/3 BiometricPrompt with cryptographic keystore integration |
+| **Python Engine**| Python 3.8 – 3.11 (Chaquopy) | Sandboxed plugin runtime with isolated module import caches |
+
+---
+
+## Building from Source
+
+### Prerequisites
+- **JDK 17** or **JDK 21**
+- **Android SDK & NDK** (API 34/35, NDK r23+)
+- **Python 3.8+** (for pipeline build tools and DEX patching)
+- **Git**
+
+### 1. Build via Gradle
+```bash
+git clone https://github.com/NothingFlare/NfGram.git
+cd NfGram
+./gradlew assembleRelease --no-daemon
+```
+
+### 2. Standalone Release Build & Sign Pipeline
+To produce a fully patched, zipaligned, and signed universal APK using the integrated tooling:
+```bash
+python Tools/build_nfgram_faceunlock.py
+```
+The resulting signed universal APK will be created at:
+```text
+NfGram-12.10.6-universal.apk
+```
+
+---
+
+## License & Attribution
+
+NfGram is licensed under the **GNU General Public License v3.0 (GNU GPLv3)**.
+
+- **Original Telegram Project**:  
+  Copyright (C) 2013–2024 Nikolai Kudashov, Telegram FZ-LLC  
+  Repository: [https://github.com/DrKLO/Telegram](https://github.com/DrKLO/Telegram)
+
+- **AyuGram Project**:  
+  Copyright (C) 2023–2024 Radolyn  
+  Repository: [https://github.com/AyuGram/AyuGramAndroid](https://github.com/AyuGram/AyuGramAndroid)
+
+- **exteraGram Project**:  
+  Copyright (C) 2021–2024 exteraSquad  
+  Repository: [https://github.com/exteraSquad/exteraGram](https://github.com/exteraSquad/exteraGram)
+
+- **NfGram Modifications & Additions**:  
+  Copyright (C) 2026 NothingFlare  
+  Licensed under GNU GPLv3.
+
+For full license terms and conditions, refer to the [LICENSE](LICENSE) file.
+
+---
+
+# Русская версия
+
+<div align="center">
+
+# NfGram
+
+**Продвинутый высокопроизводительный форк Telegram с усиленной приватностью, биометрическим Face Unlock, оптимизацией батареи, аутентичным меню exteraGram и встроенным движком Python-плагинов.**
+
+[![Версия Telegram](https://img.shields.io/badge/Telegram-12.10.6-2b2b2b.svg?style=flat-square)](https://telegram.org)
+[![Версия Android](https://img.shields.io/badge/Android-8.0+--15+-2b2b2b.svg?style=flat-square)](https://www.android.com)
+[![Архитектура](https://img.shields.io/badge/Arch-arm64--v8a%20%7C%20armeabi--v7a-2b2b2b.svg?style=flat-square)]()
+[![Релиз](https://img.shields.io/badge/Release-12.10.6-2b2b2b.svg?style=flat-square)]()
+[![Лицензия](https://img.shields.io/badge/License-GPL--3.0-2b2b2b.svg?style=flat-square)](LICENSE)
+
+[Обзор](#обзор) • [Уведомление о форке](#уведомление-о-форке) • [Ключевые особенности](#ключевые-особенности) • [Совместимость](#совместимость) • [Сборка из исходников](#сборка-из-исходников) • [Лицензия и авторство](#лицензия-и-авторство)
+
+</div>
+
+---
+
+## Обзор
+
+**NfGram** — это модифицированный клиент с открытым исходным кодом, созданный на базе **AyuGram** и официального клиента **Telegram для Android**, объединяющий передовые наработки **exteraGram** и авторские улучшения производительности.
+
+Проект создан для пользователей, которым необходима бескомпромиссная скорость работы, надёжная защита приватности, удобная авторизация через Face Unlock и гибкая кастомизация с поддержкой расширений на Python.
+
+---
+
+## Уведомление о форке
+
+> [!IMPORTANT]
+> **NfGram является независимым форком проектов [AyuGram](https://github.com/AyuGram/AyuGramAndroid) и [Telegram для Android](https://github.com/DrKLO/Telegram) с включением элементов из [exteraGram](https://github.com/exteraSquad/exteraGram).**
+> - Проект распространяется на условиях лицензии **GNU General Public License v3.0 (GNU GPLv3)**.
+> - NfGram **не** является официальным продуктом Telegram FZ-LLC, команды разработчиков AyuGram или exteraSquad.
+> - Модификации, биометрический Face Unlock, многопоточная загрузка, оптимизация энергопотребления и доработки движка разработаны и поддерживаются разработчиком **NothingFlare**.
+> - Все вопросы, сообщения об ошибках и предложения направляются непосредственно в данный репозиторий.
+
+---
+
+## Ключевые особенности
+
+- **Многопоточная параллельная загрузка медиа (`ParallelDispatchQueue`)**
+  - Устранено узкое горлышко однопоточной очереди при передаче файлов.
+  - Потоки отправки данных распределяются по ядрам процессора, позволяя полностью утилизировать современные высокоскоростные каналы связи без зависаний интерфейса.
+
+- **Биометрический Face Unlock и интеграция с кодом-паролем**
+  - Поддержка разблокировки по лицу через системный `BiometricPrompt` (Class 2 / Class 3).
+  - Удобный и безопасный переход между разблокировкой по лицу, сканером отпечатка пальца и запасным PIN-кодом устройства.
+
+- **Глубокая оптимизация энергопотребления и батареи**
+  - **Датчики и сенсоры**: Отключен фоновый поллинг гироскопа и ориентации при отсутствии необходимости, предотвращая фоновый разряд аккумулятора.
+  - **Снижение нагрузки на GPU**: Отключены ресурсоёмкие шейдеры размытия в чатах (`canBlurChat`, `chatBlurEnabled`, `useNewBlur`), что значительно снижает нагрев устройства и нагрузку на видеочип.
+  - **Энергосберегающие таймеры**: Агрессивные RTC-будильники заменены на пакетные неразбуждающие интервалы (15 минут), что позволяет устройству спокойно уходить в глубокий сон (Deep Sleep).
+  - **Следование энергосбережению системы**: Опция `powerSaverFollowSystem` включена по умолчанию.
+  - **Устранение фонового логирования**: Отключены избыточные циклы записи системных логов на флеш-память (`LOGS_ENABLED = false`).
+
+- **Аутентичный хаб настроек exteraGram**
+  - Полностью воссозданный интерфейс настроек с фирменным оформлением.
+  - Оригинальная цветовая палитра (`#ffe83030`), раздельные плашки категорий, кастомные векторные иконки.
+  - Прямой и удобный доступ к настройкам приватности AyuGram и функционалу exteraGram в одном месте.
+
+- **Отказоустойчивый движок Python-плагинов**
+  - Ленивая загрузка среды Chaquopy — SDK инициализируется по требованию, не замедляя холодный старт Telegram.
+  - Автоматическое добавление родительских директорий плагинов в `sys.path` для корректного импорта сторонних модулей.
+  - Защита от сбоев: парсер метаданных плагинов не крашит клиент при синтаксических ошибках в манифесте плагина.
+  - Корректная работа переключателей: состояние тумблеров синхронизируется с интерфейсом, плагины корректно включаются и отключаются на лету.
+
+- **Призрак и история сообщений (из AyuGram)**
+  - Чтение удалённых сообщений и просмотр полной истории правок.
+  - Режим призрака: скрытие статуса «онлайн», отсутствие отметок о прочтении и индикаторов набора текста.
+  - Обход запрета на создание скриншотов в защищённых чатах.
+
+---
+
+## Совместимость
+
+| Платформа | Поддерживаемые версии | Описание |
+| :--- | :--- | :--- |
+| **Android OS** | Android 8.0 (API 26) – Android 15+ (API 35+) | Полная поддержка современного рантайма ART JIT и динамических разрешений |
+| **Архитектуры** | `arm64-v8a`, `armeabi-v7a` | Оптимизированные нативные библиотеки с поддержкой NEON |
+| **Биометрия** | Сканер отпечатка, Face Unlock, PIN-код | BiometricPrompt Class 2/3 с аппаратным хранилищем ключей |
+| **Python** | Python 3.8 – 3.11 (Chaquopy) | Изолированная среда выполнения плагинов с кэшированием импортов |
+
+---
+
+## Сборка из исходников
+
+### Требования
+- **JDK 17** или **JDK 21**
+- **Android SDK & NDK** (API 34/35, NDK r23+)
+- **Python 3.8+** (для скриптов сборки и патчинга DEX)
+- **Git**
+
+### 1. Сборка через Gradle
+```bash
+git clone https://github.com/NothingFlare/NfGram.git
+cd NfGram
+./gradlew assembleRelease --no-daemon
+```
+
+### 2. Сборка готового подписанного универсального APK
+Для сборки через автоматизированный пайплайн с выравниванием (zipalign) и подписью:
+```bash
+python Tools/build_nfgram_faceunlock.py
+```
+Собранный и подписанный файл появится в корне и на рабочем столе:
+```text
+NfGram-12.10.6-universal.apk
+```
+
+---
+
+## Лицензия и авторство
+
+NfGram распространяется под свободной лицензией **GNU General Public License v3.0 (GNU GPLv3)**.
+
+- **Оригинальный проект Telegram**:  
+  Copyright (C) 2013–2024 Nikolai Kudashov, Telegram FZ-LLC  
+  Репозиторий: [https://github.com/DrKLO/Telegram](https://github.com/DrKLO/Telegram)
+
+- **Проект AyuGram**:  
+  Copyright (C) 2023–2024 Radolyn  
+  Репозиторий: [https://github.com/AyuGram/AyuGramAndroid](https://github.com/AyuGram/AyuGramAndroid)
+
+- **Проект exteraGram**:  
+  Copyright (C) 2021–2024 exteraSquad  
+  Репозиторий: [https://github.com/exteraSquad/exteraGram](https://github.com/exteraSquad/exteraGram)
+
+- **Модификации и дополнения NfGram**:  
+  Copyright (C) 2026 NothingFlare  
+  Лицензировано под GNU GPLv3.
+
+Полный текст лицензии доступен в файле [LICENSE](LICENSE).

@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.ui.Components.spoilers;
 
 import android.app.Activity;

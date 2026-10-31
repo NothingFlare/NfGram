@@ -1,9 +1,7 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Grishka
  *
- * Copyright Grishka, 2013-2016.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.ui.Components.voip;

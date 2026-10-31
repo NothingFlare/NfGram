@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.ui;
 
 import android.animation.Animator;
@@ -1660,5 +1667,10 @@ public class CalendarActivity extends BaseFragment implements NotificationCenter
     public boolean isLightStatusBar() {
         int color = Theme.getColor(Theme.key_windowBackgroundWhite, null, true);
         return ColorUtils.calculateLuminance(color) > 0.7f;
+    }
+
+    @Override
+    public int getNavigationBarColor() {
+        return getThemedColor(Theme.key_windowBackgroundWhite);
     }
 }

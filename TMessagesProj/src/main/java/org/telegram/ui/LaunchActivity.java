@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.ui;
@@ -83,6 +82,11 @@ import com.google.common.primitives.Longs;
 import com.google.firebase.appindexing.Action;
 import com.google.firebase.appindexing.FirebaseUserActions;
 import com.google.firebase.appindexing.builders.AssistActionBuilder;
+
+import com.radolyn.ayugram.AyuConfig;
+import com.radolyn.ayugram.AyuConstants;
+import com.radolyn.ayugram.AyuCustomHandlers;
+import com.radolyn.ayugram.AyuUtils;
 
 import org.telegram.PhoneFormat.PhoneFormat;
 import org.telegram.messenger.AccountInstance;
@@ -664,6 +668,24 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                     args.putInt("type", MediaActivity.TYPE_STORIES);
                     presentFragment(new MediaActivity(args, null));
                 }
+
+                // --- AyuGram hook
+                if (id == AyuConstants.DRAWER_TOGGLE_GHOST && AyuConfig.showGhostToggleInDrawer) {
+                    var msg = AyuConfig.isGhostModeActive()
+                            ? LocaleController.getString("GhostModeDisabled", R.string.GhostModeDisabled)
+                            : LocaleController.getString("GhostModeEnabled", R.string.GhostModeEnabled);
+
+                    AyuConfig.toggleGhostMode();
+
+                    BulletinFactory.of(getLastFragment()).createSuccessBulletin(msg).show();
+                    drawerLayoutContainer.closeDrawer(false);
+
+                    // update button text
+                    NotificationCenter.getInstance(UserConfig.selectedAccount).postNotificationName(NotificationCenter.mainUserInfoChanged);
+                } else if (id == AyuConstants.DRAWER_KILL_APP) {
+                    AyuUtils.killApplication(this);
+                }
+                // --- AyuGram hook
             }
         });
         final ItemTouchHelper sideMenuTouchHelper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
@@ -2806,6 +2828,10 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                                         }
                                         String purpose = data.getQueryParameter("purpose");
                                         StarsController.getInstance(intentAccount[0]).showStarsTopup(this, balance, purpose);
+                                    } else if ((url.startsWith("tg:ayu") || url.startsWith("tg://ayu"))) {
+                                        AyuCustomHandlers.handleAyu(getLastFragment());
+                                    } else if ((url.startsWith("tg:xiaomi") || url.startsWith("tg://xiaomi"))) {
+                                        AyuCustomHandlers.handleXiaomi(getLastFragment());
                                     } else {
                                         unsupportedUrl = url.replace("tg://", "").replace("tg:", "");
                                         int index;
@@ -2895,6 +2921,13 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                     open_settings = 1;
                 } else if (intent.getAction().equals("new_dialog")) {
                     open_new_dialog = 1;
+                } else if (intent.getAction().equals("ghost_mode")) {
+                    AyuConfig.setGhostMode(true);
+
+                    // update button text
+                    NotificationCenter.getInstance(UserConfig.selectedAccount).postNotificationName(NotificationCenter.mainUserInfoChanged);
+
+                    open_settings = 1;
                 } else if (intent.getAction().startsWith("com.tmessages.openchat")) {
 //                    Integer chatIdInt = intent.getIntExtra("chatId", 0);
                     long chatId = intent.getLongExtra("chatId", 0);
@@ -5643,7 +5676,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         }
         TLRPC.TL_help_getAppUpdate req = new TLRPC.TL_help_getAppUpdate();
         try {
-            req.source = ApplicationLoader.applicationContext.getPackageManager().getInstallerPackageName(ApplicationLoader.applicationContext.getPackageName());
+            req.source = AyuConstants.BUILD_STORE_PACKAGE;
         } catch (Exception ignore) {
 
         }

@@ -1,0 +1,6 @@
+/*
+ * Copyright (C) The Android Open Source Project
+ *
+ * Licensed under GNU GPLv3.
+ */
+

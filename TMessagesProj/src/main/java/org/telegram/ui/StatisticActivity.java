@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.ui;
 
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;

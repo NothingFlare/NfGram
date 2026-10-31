@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.messenger;
@@ -17,6 +16,7 @@ import androidx.annotation.IntDef;
 import androidx.collection.LongSparseArray;
 
 import com.google.android.exoplayer2.util.Log;
+import com.radolyn.ayugram.AyuConfig;
 
 import org.telegram.messenger.voip.Instance;
 import org.telegram.messenger.voip.VoIPService;
@@ -1768,7 +1768,11 @@ public class ChatObject {
     }
 
     public static boolean isNotInChat(TLRPC.Chat chat) {
-        return chat == null || chat instanceof TLRPC.TL_chatEmpty || chat instanceof TLRPC.TL_chatForbidden || chat instanceof TLRPC.TL_channelForbidden || chat.left || chat.kicked || chat.deactivated;
+        if (!AyuConfig.saveDeletedMessages) {
+            return chat == null || chat instanceof TLRPC.TL_chatEmpty || chat instanceof TLRPC.TL_chatForbidden || chat instanceof TLRPC.TL_channelForbidden || chat.left || chat.kicked || chat.deactivated;
+        }
+
+        return chat == null || chat.left;
     }
 
     public static boolean isInChat(TLRPC.Chat chat) {

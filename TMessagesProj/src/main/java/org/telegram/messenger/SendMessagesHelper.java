@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.messenger;
@@ -34,6 +33,7 @@ import android.provider.OpenableColumns;
 import android.text.Spannable;
 import android.text.TextUtils;
 import android.util.Base64;
+import android.util.Log;
 import android.util.SparseArray;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -46,6 +46,11 @@ import android.widget.Toast;
 import androidx.annotation.UiThread;
 import androidx.collection.LongSparseArray;
 import androidx.core.view.inputmethod.InputContentInfoCompat;
+
+import com.radolyn.ayugram.AyuConfig;
+import com.radolyn.ayugram.AyuForwarder;
+import com.radolyn.ayugram.AyuUtils;
+import com.radolyn.ayugram.utils.AyuState;
 
 import org.json.JSONObject;
 import org.telegram.messenger.audioinfo.AudioInfo;
@@ -1864,10 +1869,50 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         return sendMessage(messages, peer, forwardFromMyName, hideCaption, notify, scheduleDate, null);
     }
 
-    public int sendMessage(ArrayList<MessageObject> messages, final long peer, boolean forwardFromMyName, boolean hideCaption, boolean notify, int scheduleDate, MessageObject replyToTopMsg) {
+    public int sendMessage(ArrayList<MessageObject> messages, final long peer, boolean forwardFromMyName, boolean hideCaption, boolean notify, int scheduleDateOrig, MessageObject replyToTopMsg) {
         if (messages == null || messages.isEmpty()) {
             return 0;
         }
+
+        // --- AyuGram scheduled hook
+        if (AyuConfig.useScheduledMessages && !DialogObject.isEncryptedDialog(peer) && scheduleDateOrig == 0) {
+            scheduleDateOrig = ConnectionsManager.getInstance(currentAccount).getCurrentTime() + 10; // min t = 10 sec
+
+            // ..but here's the problem:
+            // "If the schedule_date is less than 10 seconds in the future, the message will be sent immediately, generating a normal updateNewMessage/updateNewChannelMessage."
+            // we have to ensure that we have a small window for an error
+            scheduleDateOrig += 1; // 1 sec
+
+            AyuState.setAutomaticallyScheduled(true, 1);
+        }
+        var scheduleDate = scheduleDateOrig;
+
+        var ayuForwardNeeded = AyuForwarder.isFullAyuForwardsNeeded(currentAccount, messages);
+        if (ayuForwardNeeded) {
+            new Thread(() -> {
+                try {
+                    AyuForwarder.forwardMessages(currentAccount, messages, peer, forwardFromMyName, hideCaption, notify, scheduleDate, replyToTopMsg);
+                } catch (Exception e) {
+                    Log.e("AyuGram", "Failed to forward messages", e);
+                }
+            }).start();
+            return 0;
+        }
+
+        var ayuIntelligentForwardNeeded = AyuForwarder.isAyuForwardNeeded(messages);
+        if (ayuIntelligentForwardNeeded) {
+            new Thread(() -> {
+                try {
+                    AyuForwarder.intelligentForward(currentAccount, messages, peer, forwardFromMyName, hideCaption, notify, scheduleDate, replyToTopMsg);
+                } catch (Exception e) {
+                    Log.e("AyuGram", "Failed to forward messages", e);
+                }
+            }).start();
+            return 0;
+        }
+
+        // --- AyuGram hook
+
         int sendResult = 0;
         long myId = getUserConfig().getClientUserId();
         boolean isChannel = false;
@@ -3587,6 +3632,59 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         if (message == null && caption == null) {
             caption = "";
         }
+
+        // --- AyuGram scheduled hook
+        if (AyuConfig.useScheduledMessages && !DialogObject.isEncryptedDialog(peer) && scheduleDate == 0) {
+            scheduleDate = ConnectionsManager.getInstance(currentAccount).getCurrentTime() + 10; // min t = 10 sec
+
+            // ..but here's the problem:
+            // "If the schedule_date is less than 10 seconds in the future, the message will be sent immediately, generating a normal updateNewMessage/updateNewChannelMessage."
+            // we have to ensure that we have a small window for an error
+            scheduleDate += 1; // 1 sec
+
+            if (document != null) {
+                scheduleDate += 15;
+            } else if (photo != null) {
+                scheduleDate += 10;
+            }
+
+            AyuState.setAutomaticallyScheduled(true, 1);
+        }
+
+        // user can't reply to deleted messages
+        if (replyToMsg != null && replyToMsg.messageOwner != null && replyToMsg.messageOwner.ayuDeleted) {
+            if ((!TextUtils.isEmpty(message) || !TextUtils.isEmpty(caption) || photo != null) && !TextUtils.isEmpty(replyToMsg.messageText)) {
+                var fromPeer = replyToMsg.getFromPeerObject();
+                var name = "";
+
+                if (!DialogObject.isUserDialog(peer)) {
+                    if (fromPeer instanceof TLRPC.Chat) {
+                        var fromPeerChat = (TLRPC.Chat) fromPeer;
+                        name = fromPeerChat.title;
+                    } else if (fromPeer instanceof TLRPC.User) {
+                        var fromPeerUser = (TLRPC.User) fromPeer;
+                        name = ContactsController.formatName(fromPeerUser.first_name, fromPeerUser.last_name);
+                    }
+
+                    name += "\n";
+                }
+
+                var prefix = name + "> " + AyuUtils.shortify(replyToMsg.messageText, 20);
+
+                if (!TextUtils.isEmpty(message)) {
+                    message = prefix + "\n\n" + message;
+                } else if (!TextUtils.isEmpty(caption)) {
+                    caption = prefix + "\n\n" + caption;
+                } else if (photo != null) {
+                    caption = prefix;
+                }
+
+                AyuUtils.shiftEntities(entities, prefix.length());
+            }
+
+            replyToMsg = null;
+        }
+        // --- AyuGram hook
 
         if (replyQuote != null && replyQuote.message != null && replyToMsg != null) {
             replyToMsg = replyQuote.message;

@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <time.h>
+
 #include <string.h>
 #include <jni.h>
 #include <sys/types.h>

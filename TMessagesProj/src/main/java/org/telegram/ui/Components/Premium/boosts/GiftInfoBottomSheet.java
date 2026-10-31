@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.ui.Components.Premium.boosts;
 
 import static org.telegram.tgnet.TLRPC.TL_payments_checkedGiftCode.NO_USER_ID;

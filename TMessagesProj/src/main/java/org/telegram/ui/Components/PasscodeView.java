@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.ui.Components;
 
 import static org.telegram.messenger.AndroidUtilities.dp;
@@ -1187,7 +1194,8 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
         Activity parentActivity = AndroidUtilities.findActivity(getContext());
         if (parentActivity != null && fingerprintView.getVisibility() == VISIBLE && !ApplicationLoader.mainInterfacePaused && (!(parentActivity instanceof LaunchActivity) || ((LaunchActivity) parentActivity).allowShowFingerprintDialog(this))) {
             try {
-                if (BiometricManager.from(getContext()).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS && FingerprintController.isKeyReady() && !FingerprintController.checkDeviceFingerprintsChanged()) {
+                final int authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.BIOMETRIC_WEAK;
+                if (BiometricManager.from(getContext()).canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS) {
                     final Executor executor = ContextCompat.getMainExecutor(getContext());
                     BiometricPrompt prompt = new BiometricPrompt(LaunchActivity.instance, executor, new BiometricPrompt.AuthenticationCallback() {
                         @Override
@@ -1211,7 +1219,8 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
                     final BiometricPrompt.PromptInfo promptInfo = new BiometricPrompt.PromptInfo.Builder()
                             .setTitle(LocaleController.getString(R.string.UnlockToUse))
                             .setNegativeButtonText(LocaleController.getString(R.string.UsePIN))
-                            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                            .setAllowedAuthenticators(authenticators)
+                            .setConfirmationRequired(false)
                             .build();
                     prompt.authenticate(promptInfo);
                     showPin(false);
@@ -1230,8 +1239,12 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
         Activity parentActivity = AndroidUtilities.findActivity(getContext());
         if (Build.VERSION.SDK_INT >= 23 && parentActivity != null && SharedConfig.useFingerprintLock) {
             try {
+                final int authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.BIOMETRIC_WEAK;
+                if (BiometricManager.from(ApplicationLoader.applicationContext).canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS) {
+                    return true;
+                }
                 FingerprintManagerCompat fingerprintManager = FingerprintManagerCompat.from(ApplicationLoader.applicationContext);
-                return fingerprintManager.isHardwareDetected() && fingerprintManager.hasEnrolledFingerprints() && FingerprintController.isKeyReady() && !FingerprintController.checkDeviceFingerprintsChanged();
+                return fingerprintManager.isHardwareDetected() && fingerprintManager.hasEnrolledFingerprints();
             } catch (Throwable e) {
                 FileLog.e(e);
             }
@@ -1244,12 +1257,18 @@ public class PasscodeView extends FrameLayout implements NotificationCenter.Noti
         Activity parentActivity = AndroidUtilities.findActivity(getContext());
         if (Build.VERSION.SDK_INT >= 23 && parentActivity != null && SharedConfig.useFingerprintLock) {
             try {
-                FingerprintManagerCompat fingerprintManager = FingerprintManagerCompat.from(ApplicationLoader.applicationContext);
-                if (fingerprintManager.isHardwareDetected() && fingerprintManager.hasEnrolledFingerprints() && FingerprintController.isKeyReady() && !FingerprintController.checkDeviceFingerprintsChanged()) {
+                final int authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.BIOMETRIC_WEAK;
+                if (BiometricManager.from(ApplicationLoader.applicationContext).canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS) {
                     hasFingerprint = true;
                     fingerprintView.setVisibility(VISIBLE);
                 } else {
-                    fingerprintView.setVisibility(GONE);
+                    FingerprintManagerCompat fingerprintManager = FingerprintManagerCompat.from(ApplicationLoader.applicationContext);
+                    if (fingerprintManager.isHardwareDetected() && fingerprintManager.hasEnrolledFingerprints()) {
+                        hasFingerprint = true;
+                        fingerprintView.setVisibility(VISIBLE);
+                    } else {
+                        fingerprintView.setVisibility(GONE);
+                    }
                 }
             } catch (Throwable e) {
                 FileLog.e(e);

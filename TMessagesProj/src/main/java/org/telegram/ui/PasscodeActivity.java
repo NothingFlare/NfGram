@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.ui;
@@ -878,7 +877,7 @@ public class PasscodeActivity extends BaseFragment implements NotificationCenter
         try {
             if (Build.VERSION.SDK_INT >= 23) {
                 if (
-                    BiometricManager.from(ApplicationLoader.applicationContext).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS &&
+                    BiometricManager.from(ApplicationLoader.applicationContext).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS &&
                     AndroidUtilities.isKeyguardSecure()
                 ) {
                     fingerprintRow = rowCount++;

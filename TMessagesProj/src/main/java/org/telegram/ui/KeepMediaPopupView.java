@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.ui;
 
 import static org.telegram.ui.CacheControlActivity.KEEP_MEDIA_TYPE_STORIES;

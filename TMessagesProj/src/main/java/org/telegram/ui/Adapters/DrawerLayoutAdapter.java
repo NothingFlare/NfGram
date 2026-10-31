@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.ui.Adapters;
@@ -18,6 +17,9 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
+import com.radolyn.ayugram.AyuConfig;
+import com.radolyn.ayugram.AyuConstants;
+
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MediaDataController;
 import org.telegram.messenger.MessagesController;
@@ -299,6 +301,21 @@ public class DrawerLayoutAdapter extends RecyclerListView.SelectionAdapter {
             inviteIcon = R.drawable.msg_invite;
             helpIcon = R.drawable.msg_help;
         }
+
+        // --- AyuGram hook
+        if (AyuConfig.showGhostToggleInDrawer) {
+            var msg = AyuConfig.isGhostModeActive()
+                    ? LocaleController.getString("DisableGhostMode", R.string.DisableGhostMode)
+                    : LocaleController.getString("EnableGhostMode", R.string.EnableGhostMode);
+            items.add(new Item(AyuConstants.DRAWER_TOGGLE_GHOST, msg, R.drawable.ayu_ghost));
+            items.add(null);
+        }
+        if (AyuConfig.showKillButtonInDrawer) {
+            items.add(new Item(AyuConstants.DRAWER_KILL_APP, LocaleController.getString("KillApp", R.string.KillApp), R.drawable.msg_disable));
+            items.add(null);
+        }
+        // --- AyuGram hook
+
         UserConfig me = UserConfig.getInstance(UserConfig.selectedAccount);
         boolean showDivider = false;
         items.add(new Item(16, LocaleController.getString(R.string.MyProfile), R.drawable.left_status_profile));

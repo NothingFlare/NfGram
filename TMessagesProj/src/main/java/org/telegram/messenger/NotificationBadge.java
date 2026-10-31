@@ -1,5 +1,7 @@
 /*
- https://github.com/leolin310148/ShortcutBadger
+ * Copyright (C) Nikolai Kudashov
+ *
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.messenger;

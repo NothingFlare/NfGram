@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) Rick Maddy
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 // Copyright (c) 2012, Rick Maddy
 // All rights reserved.
 //

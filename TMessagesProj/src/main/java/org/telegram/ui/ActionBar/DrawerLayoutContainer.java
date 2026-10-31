@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.ui.ActionBar;
@@ -40,6 +39,8 @@ import android.widget.FrameLayout;
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import com.radolyn.ayugram.AyuAppearanceConfig;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.BuildVars;
@@ -744,7 +745,7 @@ public class DrawerLayoutContainer extends FrameLayout {
 
         if (scrimOpacity > 0 && drawingContent) {
             if (indexOfChild(child) == lastVisibleChild) {
-                scrimPaint.setColor((int) (((0x99000000 & 0xff000000) >>> 24) * scrimOpacity) << 24);
+                scrimPaint.setColor((int) ((((AyuAppearanceConfig.alternativeOpenAnimation ? 0x66000000 : 0x99000000) & 0xff000000) >>> 24) * scrimOpacity) << 24);
                 canvas.drawRect(clipLeft, 0, clipRight, getHeight(), scrimPaint);
             }
         } else if (shadowLeft != null) {

@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.messenger;
 
 import android.Manifest;
@@ -177,27 +184,7 @@ public class EmuDetector {
     }
 
     public boolean detect() {
-        if (detected) {
-            return detectResult;
-        }
-        try {
-            detected = true;
-            if (!detectResult) {
-                detectResult = checkBasic();
-            }
-            if (!detectResult) {
-                detectResult = checkAdvanced();
-            }
-            if (!detectResult) {
-                detectResult = checkPackageName();
-            }
-            if (!detectResult) {
-                detectResult = EmuInputDevicesDetector.detect();
-            }
-            return detectResult;
-        } catch (Exception ignore) {
-
-        }
+        // AyuGram: remove emulator detection
         return false;
     }
 

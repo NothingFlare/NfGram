@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.ui.Components;
@@ -84,6 +83,10 @@ public class FilterTabsView extends FrameLayout {
     public interface FilterTabsViewDelegate {
         void onPageSelected(Tab tab, boolean forward);
 
+        // --- AyuGram hook: separate lightweight callback used only for action-bar title swapping
+        default void onTabSelected(Tab tab, boolean forward, boolean animated) {}
+        // --- AyuGram hook
+
         void onPageScrolled(float progress);
 
         void onSamePageSelected();
@@ -104,6 +107,7 @@ public class FilterTabsView extends FrameLayout {
     public class Tab {
         public int id;
         public String title;
+        public String realTitle; // AyuGram hook — full tabIcons==2 icon-mode not ported, kept equal to title
         public int titleWidth;
         public int counter;
         public boolean isDefault;
@@ -112,6 +116,7 @@ public class FilterTabsView extends FrameLayout {
         public Tab(int i, String t) {
             id = i;
             title = t;
+            realTitle = t; // AyuGram hook
         }
 
         public int getWidth(boolean store) {
@@ -736,6 +741,7 @@ public class FilterTabsView extends FrameLayout {
     private boolean animatingIndicator;
     private float animatingIndicatorProgress;
     private int manualScrollingToPosition = -1;
+    private int oldAnimatedTab = -1; // AyuGram hook
     private int manualScrollingToId = -1;
 
     private int scrollingToChild = -1;
@@ -1093,6 +1099,8 @@ public class FilterTabsView extends FrameLayout {
 
         if (delegate != null) {
             delegate.onPageSelected(tab, scrollingForward);
+            delegate.onTabSelected(tab, scrollingForward, true);
+            oldAnimatedTab = currentPosition;
         }
         scrollToChild(position);
     }
@@ -1186,6 +1194,12 @@ public class FilterTabsView extends FrameLayout {
     public void finishAddingTabs(boolean animated) {
         listView.setItemAnimator(animated ? itemAnimator : null);
         adapter.notifyDataSetChanged();
+        // --- AyuGram hook
+        if (delegate != null) {
+            delegate.onTabSelected(tabs.get(currentPosition), false, false);
+        }
+        oldAnimatedTab = currentPosition;
+        // --- AyuGram hook
     }
 
     public void animateColorsTo(int line, int active, int unactive, int selector, int background) {
@@ -1440,6 +1454,14 @@ public class FilterTabsView extends FrameLayout {
         listView.invalidateViews();
         invalidate();
         scrollToChild(position);
+
+        // --- AyuGram hook
+        if (delegate != null && (((progress >= 0.5f && oldAnimatedTab != position) || (progress <= 0.5f && oldAnimatedTab != currentPosition)) && manualScrollingToPosition != currentPosition)) {
+            int titlePosition = progress >= 0.5f ? position : currentPosition;
+            delegate.onTabSelected(tabs.get(titlePosition), currentPosition < titlePosition, true);
+            oldAnimatedTab = titlePosition;
+        }
+        // --- AyuGram hook
 
         if (progress >= 1.0f) {
             manualScrollingToPosition = -1;

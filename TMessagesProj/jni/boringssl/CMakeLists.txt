@@ -497,7 +497,7 @@ if(USE_CUSTOM_LIBCXX)
   # CMAKE_CXX_FLAGS ends up in the linker flags as well, so use
   # add_compile_options. There does not appear to be a way to set
   # language-specific compile-only flags.
-  add_compile_options("-nostdinc++")
+  add_compile_options(-Wno-c++11-narrowing "-nostdinc++")
   set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} -nostdlib++")
   include_directories(
     SYSTEM

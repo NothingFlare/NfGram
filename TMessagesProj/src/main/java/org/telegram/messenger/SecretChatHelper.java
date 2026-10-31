@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 2.0.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.messenger;
@@ -12,8 +11,14 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.text.TextUtils;
+import android.util.LongSparseArray;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
+
+import com.radolyn.ayugram.AyuConfig;
+import com.radolyn.ayugram.AyuConstants;
+import com.radolyn.ayugram.messages.AyuMessagesController;
+import com.radolyn.ayugram.messages.AyuSavePreferences;
 
 import org.telegram.SQLite.SQLiteCursor;
 import org.telegram.messenger.support.LongSparseIntArray;
@@ -111,6 +116,49 @@ public class SecretChatHelper extends BaseController {
     protected void processPendingEncMessages() {
         if (!pendingEncMessagesToDelete.isEmpty()) {
             ArrayList<Long> pendingEncMessagesToDeleteCopy = new ArrayList<>(pendingEncMessagesToDelete);
+
+            // --- AyuGram hook (secret)
+
+            if (AyuConfig.saveDeletedMessages) {
+                // save before because they will be removed when `runOnUIThread` happens
+                var dialogsWithMessageIds = getMessagesStorage().getMessageIdsByRandomIds(pendingEncMessagesToDeleteCopy);
+                var dialogsWithMessages = new LongSparseArray<ArrayList<TLRPC.Message>>();
+                for (var i = 0; i < dialogsWithMessageIds.size(); i++) {
+                    var dialogId = dialogsWithMessageIds.keyAt(i);
+                    var messageIds = dialogsWithMessageIds.valueAt(i);
+
+                    for (var messageId : messageIds) {
+                        var message = getMessagesStorage().getMessage(dialogId, messageId);
+                        if (message != null) {
+                            var messages = dialogsWithMessages.get(dialogId);
+                            if (messages == null) {
+                                messages = new ArrayList<>();
+                                dialogsWithMessages.put(dialogId, messages);
+                            }
+
+                            messages.add(message);
+                        }
+                    }
+                }
+
+                for (var i = 0; i < dialogsWithMessages.size(); i++) {
+                    var dialogId = dialogsWithMessages.keyAt(i);
+                    var messages = dialogsWithMessages.valueAt(i);
+
+                    for (var msg : messages) {
+                        var prefs = new AyuSavePreferences(msg, currentAccount);
+                        prefs.setDialogId(dialogId);
+                        AyuMessagesController.getInstance().onMessageDeleted(prefs);
+                    }
+
+                    AndroidUtilities.runOnUIThread(() -> {
+                        // invalidating views
+                        getNotificationCenter().postNotificationName(AyuConstants.MESSAGES_DELETED_NOTIFICATION, dialogId, dialogsWithMessageIds.get(dialogId));
+                    });
+                }
+            }
+            // --- AyuGram hook
+
             AndroidUtilities.runOnUIThread(() -> {
                 for (int a = 0; a < pendingEncMessagesToDeleteCopy.size(); a++) {
                     MessageObject messageObject = getMessagesController().dialogMessagesByRandomIds.get(pendingEncMessagesToDeleteCopy.get(a));

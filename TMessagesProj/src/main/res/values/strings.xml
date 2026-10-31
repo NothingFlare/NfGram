@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="AppName">Telegram</string>
-    <string name="AppNameBeta">Telegram Beta</string>
+    <string name="AppName">AyuGram</string>
+    <string name="AppNameBeta">AyuGram Beta</string>
     <string name="LanguageName">English</string>
     <string name="English">English</string>
     <string name="LanguageNameInEnglish">English</string>
@@ -8386,4 +8386,5 @@
     <string name="BotFileDownloaded">File saved to Downloads</string>
     <string name="BotFileDownloadOpen">Open</string>
     <string name="BotFileDownloadCancel">Cancel</string>
+    <string name="exteraAppName" translatable="false">AyuGram</string>
 </resources>

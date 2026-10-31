@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 1.3.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.messenger;
@@ -30,6 +29,8 @@ import android.util.SparseArray;
 
 import androidx.annotation.NonNull;
 import androidx.collection.LongSparseArray;
+
+import com.radolyn.ayugram.AyuConstants;
 
 import com.google.android.exoplayer2.util.Log;
 
@@ -386,7 +387,7 @@ public class ContactsController extends BaseController {
         Utilities.globalQueue.postRunnable(() -> {
             AccountManager am = AccountManager.get(ApplicationLoader.applicationContext);
             try {
-                Account[] accounts = am.getAccountsByType("org.telegram.messenger");
+                Account[] accounts = am.getAccountsByType(AyuConstants.BUILD_ACCOUNT_TYPE);
                 for (int a = 0; a < accounts.length; a++) {
                     Account acc = accounts[a];
                     boolean found = false;
@@ -418,7 +419,7 @@ public class ContactsController extends BaseController {
                 readContacts();
                 if (systemAccount == null) {
                     try {
-                        systemAccount = new Account("" + getUserConfig().getClientUserId(), "org.telegram.messenger");
+                        systemAccount = new Account("" + getUserConfig().getClientUserId(), AyuConstants.BUILD_ACCOUNT_TYPE);
                         am.addAccountExplicitly(systemAccount, "", null);
                     } catch (Exception ignore) {
 
@@ -432,7 +433,7 @@ public class ContactsController extends BaseController {
         try {
             systemAccount = null;
             AccountManager am = AccountManager.get(ApplicationLoader.applicationContext);
-            Account[] accounts = am.getAccountsByType("org.telegram.messenger");
+            Account[] accounts = am.getAccountsByType(AyuConstants.BUILD_ACCOUNT_TYPE);
             for (int a = 0; a < accounts.length; a++) {
                 Account acc = accounts[a];
                 boolean found = false;
@@ -508,7 +509,7 @@ public class ContactsController extends BaseController {
                 AndroidUtilities.runOnUIThread(() -> {
                     AccountManager am = AccountManager.get(ApplicationLoader.applicationContext);
                     try {
-                        Account[] accounts = am.getAccountsByType("org.telegram.messenger");
+                        Account[] accounts = am.getAccountsByType(AyuConstants.BUILD_ACCOUNT_TYPE);
                         systemAccount = null;
                         for (int a = 0; a < accounts.length; a++) {
                             Account acc = accounts[a];
@@ -526,7 +527,7 @@ public class ContactsController extends BaseController {
 
                     }
                     try {
-                        systemAccount = new Account("" + getUserConfig().getClientUserId(), "org.telegram.messenger");
+                        systemAccount = new Account("" + getUserConfig().getClientUserId(), AyuConstants.BUILD_ACCOUNT_TYPE);
                         am.addAccountExplicitly(systemAccount, "", null);
                     } catch (Exception ignore) {
 

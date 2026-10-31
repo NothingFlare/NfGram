@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.messenger;
 
 import static org.telegram.messenger.SharedConfig.SAVE_TO_GALLERY_FLAG_CHANNELS;

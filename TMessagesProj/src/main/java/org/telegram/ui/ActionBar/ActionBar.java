@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.ui.ActionBar;
@@ -46,10 +45,13 @@ import android.widget.ImageView;
 
 import androidx.core.graphics.ColorUtils;
 
+import com.radolyn.ayugram.AyuAppearanceConfig;
+
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
+import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.SharedConfig;
 import org.telegram.ui.Adapters.FiltersView;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
@@ -135,6 +137,7 @@ public class ActionBar extends FrameLayout {
     private int titleColorToSet = 0;
     private boolean overlayTitleAnimation;
     private boolean titleAnimationRunning;
+    private AnimatorSet titleAnimator; // AyuGram hook
     private boolean fromBottom;
     private boolean centerScale;
     private CharSequence subtitle;
@@ -446,17 +449,83 @@ public class ActionBar extends FrameLayout {
         if (titleTextView[0] != null) {
             titleTextView[0].setVisibility(value != null && !isSearchFieldVisible ? VISIBLE : INVISIBLE);
             titleTextView[0].setText(lastTitle = value);
-            if (attached && lastRightDrawable instanceof AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable) {
-                ((AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable) lastRightDrawable).setParentView(null);
+            if (!AyuAppearanceConfig.hideActionBarStatus && UserConfig.getInstance(UserConfig.selectedAccount).isPremium()) {
+                if (attached && lastRightDrawable instanceof AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable) {
+                    ((AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable) lastRightDrawable).setParentView(null);
+                }
+                titleTextView[0].setRightDrawable(lastRightDrawable = rightDrawable);
+                if (attached && lastRightDrawable instanceof AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable) {
+                    ((AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable) lastRightDrawable).setParentView(titleTextView[0]);
+                }
+                titleTextView[0].setRightDrawableOnClick(rightDrawableOnClickListener);
             }
-            titleTextView[0].setRightDrawable(lastRightDrawable = rightDrawable);
-            if (attached && lastRightDrawable instanceof AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable) {
-                ((AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable) lastRightDrawable).setParentView(titleTextView[0]);
-            }
-            titleTextView[0].setRightDrawableOnClick(rightDrawableOnClickListener);
         }
         fromBottom = false;
     }
+
+    // --- AyuGram hook (originates from exteraGram ActionBar, required by tab-title crossfade)
+    public void setTitleAnimatedX(CharSequence title, Drawable rightDrawable, boolean forward, int duration) {
+        if (titleTextView[0] == null || title == null) {
+            setTitle(title, rightDrawable);
+            return;
+        }
+
+        if (titleTextView[1] != null) {
+            if (titleTextView[1].getParent() != null) {
+                ViewGroup viewGroup = (ViewGroup) titleTextView[1].getParent();
+                viewGroup.removeView(titleTextView[1]);
+            }
+            titleTextView[1] = null;
+        }
+
+        if (titleAnimator != null) {
+            titleAnimator.cancel();
+            titleAnimator = null;
+        }
+
+        titleTextView[1] = titleTextView[0];
+        titleTextView[0] = null;
+        setTitle(title, rightDrawable);
+        titleAnimationRunning = true;
+
+        float amplitude = AndroidUtilities.dp(10) * (forward ? -1 : 1);
+
+        titleTextView[1].setTranslationX(0);
+        titleTextView[1].setTranslationY(0);
+        titleTextView[0].setTranslationX(-amplitude);
+        titleTextView[0].setTranslationY(0);
+
+        titleTextView[0].setAlpha(0);
+        titleTextView[1].setAlpha(1);
+        titleTextView[0].setVisibility(View.VISIBLE);
+        titleTextView[1].setVisibility(View.VISIBLE);
+
+        ArrayList<Animator> arrayList = new ArrayList<>();
+        arrayList.add(ObjectAnimator.ofFloat(titleTextView[1], View.ALPHA, 0));
+        arrayList.add(ObjectAnimator.ofFloat(titleTextView[0], View.ALPHA, 1));
+        arrayList.add(ObjectAnimator.ofFloat(titleTextView[1], View.TRANSLATION_X, amplitude));
+        arrayList.add(ObjectAnimator.ofFloat(titleTextView[0], View.TRANSLATION_X, 0));
+        titleAnimator = new AnimatorSet();
+        titleAnimator.playTogether(arrayList);
+        titleAnimator.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                if (titleTextView[1] != null && titleTextView[1].getParent() != null) {
+                    ViewGroup viewGroup = (ViewGroup) titleTextView[1].getParent();
+                    viewGroup.removeView(titleTextView[1]);
+                }
+                titleTextView[1] = null;
+                titleAnimationRunning = false;
+
+                requestLayout();
+            }
+        });
+        titleAnimator.setDuration(duration);
+        titleAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);
+        titleAnimator.start();
+        requestLayout();
+    }
+    // --- AyuGram hook
 
     public void setRightDrawableOnClick(OnClickListener onClickListener) {
         rightDrawableOnClickListener = onClickListener;

@@ -1,6 +1,15 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.messenger;
 
 import android.os.SystemClock;
+
+import com.radolyn.ayugram.AyuConstants;
 
 import org.telegram.tgnet.RequestDelegate;
 import org.telegram.tgnet.TLObject;
@@ -565,7 +574,7 @@ public class FileRefController extends BaseController {
             } else if ("update".equals(string)) {
                 TLRPC.TL_help_getAppUpdate req = new TLRPC.TL_help_getAppUpdate();
                 try {
-                    req.source = ApplicationLoader.applicationContext.getPackageManager().getInstallerPackageName(ApplicationLoader.applicationContext.getPackageName());
+                    req.source = AyuConstants.BUILD_STORE_PACKAGE;
                 } catch (Exception ignore) {
 
                 }

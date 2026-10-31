@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.ui.Components.voip;
 
 import static org.telegram.ui.GroupCallActivity.TRANSITION_DURATION;

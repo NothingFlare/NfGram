@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.messenger;
@@ -40,6 +39,9 @@ import android.util.Base64;
 import androidx.annotation.NonNull;
 import androidx.collection.LongSparseArray;
 import androidx.core.graphics.ColorUtils;
+
+import com.radolyn.ayugram.AyuConfig;
+import com.radolyn.ayugram.AyuConstants;
 
 import org.telegram.PhoneFormat.PhoneFormat;
 import org.telegram.messenger.browser.Browser;
@@ -5051,7 +5053,7 @@ public class MessageObject {
                 } else if (getMedia(messageOwner) instanceof TLRPC.TL_messageMediaInvoice) {
                     messageText = getMedia(messageOwner).description;
                 } else if (getMedia(messageOwner) instanceof TLRPC.TL_messageMediaUnsupported) {
-                    messageText = getString(R.string.UnsupportedMedia2);
+                    messageText = getString(R.string.UnsupportedMedia2).replace("Telegram", AyuConstants.APP_NAME);
                 } else if (getMedia(messageOwner) instanceof TLRPC.TL_messageMediaDocument) {
                     if (isSticker() || isAnimatedStickerDocument(getDocument(), true)) {
                         String sch = getStickerChar();
@@ -5179,7 +5181,7 @@ public class MessageObject {
         } else if (media instanceof TLRPC.TL_messageMediaInvoice) {
             return media.description;
         } else if (media instanceof TLRPC.TL_messageMediaUnsupported) {
-            return getString(R.string.UnsupportedMedia2);
+            return getString(R.string.UnsupportedMedia2).replace("Telegram", AyuConstants.APP_NAME);
         } else if (media instanceof TLRPC.TL_messageMediaDocument) {
             if (isStickerDocument(media.document) || isAnimatedStickerDocument(media.document, true)) {
                 String sch = getStickerChar();
@@ -8312,6 +8314,12 @@ public class MessageObject {
 //        if (MessagesController.getInstance(currentAccount).isChatNoForwards(getChatId(message)) || message != null && message.noforwards) {
 //            return true;
 //        }
+
+        // AyuGram: disable encryption
+        if (true) {
+            return false;
+        }
+
         if (message instanceof TLRPC.TL_message_secret) {
             return (getMedia(message) instanceof TLRPC.TL_messageMediaPhoto || isVideoMessage(message)) && message.ttl > 0 && message.ttl <= 60;
         } else {
@@ -8342,6 +8350,13 @@ public class MessageObject {
     }
 
     public boolean needDrawBluredPreview() {
+        return needDrawBluredPreview(!AyuConfig.saveDeletedMessages);
+    }
+
+    public boolean needDrawBluredPreview(boolean really) {
+        if (!really) {
+            return false;
+        }
         if (isRepostPreview) {
             return false;
         }
@@ -9985,7 +10000,7 @@ public class MessageObject {
             TLRPC.PhotoSize currentPhotoObject = FileLoader.getClosestPhotoSizeWithSize(photoThumbs, AndroidUtilities.getPhotoSize());
             if (currentPhotoObject != null) {
                 File file = FileLoader.getInstance(currentAccount).getPathToMessage(messageOwner, useFileDatabaseQueue);
-                if (needDrawBluredPreview()) {
+                if (needDrawBluredPreview(true)) {
                     mediaExists = new File(file.getAbsolutePath() + ".enc").exists();
                 }
                 if (!mediaExists) {
@@ -10000,7 +10015,7 @@ public class MessageObject {
             }
             if (!attachPathExists) {
                 File file = FileLoader.getInstance(currentAccount).getPathToMessage(messageOwner, useFileDatabaseQueue);
-                if (type == TYPE_VIDEO && needDrawBluredPreview() || isVoiceOnce() || isRoundOnce()) {
+                if (type == TYPE_VIDEO && needDrawBluredPreview(true) || isVoiceOnce() || isRoundOnce()) {
                     mediaExists = new File(file.getAbsolutePath() + ".enc").exists();
                 }
                 if (!mediaExists) {

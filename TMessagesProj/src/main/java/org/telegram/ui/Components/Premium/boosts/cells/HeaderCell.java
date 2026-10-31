@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.ui.Components.Premium.boosts.cells;
 
 import static org.telegram.messenger.AndroidUtilities.REPLACING_TAG_TYPE_LINKBOLD;

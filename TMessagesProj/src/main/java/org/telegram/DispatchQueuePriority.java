@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram;
 
 import org.telegram.messenger.FileLog;
@@ -10,7 +17,15 @@ import java.util.concurrent.TimeUnit;
 
 public class DispatchQueuePriority {
 
-    ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(1, 1, 60, TimeUnit.SECONDS, new PriorityBlockingQueue<>(10, new Comparator<Runnable>() {
+    // AyuGram/perf: was hardcoded ThreadPoolExecutor(1, 1, ...) — a single thread handling
+    // every priority-queued cache decode in the app. This class has exactly one call site
+    // (ImageLoader's cacheOutQueue), so widening its pool is scoped and safe.
+    private static int poolSize() {
+        int cores = Runtime.getRuntime().availableProcessors();
+        return Math.max(2, Math.min(cores - 1, 6));
+    }
+
+    ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(poolSize(), poolSize(), 60, TimeUnit.SECONDS, new PriorityBlockingQueue<>(10, new Comparator<Runnable>() {
 
         @Override
         public int compare(Runnable o1, Runnable o2) {

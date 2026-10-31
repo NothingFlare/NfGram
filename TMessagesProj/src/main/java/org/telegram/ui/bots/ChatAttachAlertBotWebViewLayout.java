@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.ui.bots;
 
 import static org.telegram.ui.Components.Bulletin.DURATION_PROLONG;

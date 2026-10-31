@@ -1,15 +1,81 @@
+# =======================================================
+#               NfGram .gitignore
+# =======================================================
+
+# Android Studio / IntelliJ IDEA
 .idea/
+*.iml
 .gradle/
+local.properties
+captures/
+.externalNativeBuild/
+
+# Gradle & Build Artifacts
 build/
 obj/
-*.iml
-local.properties
+bin/
+gen/
+out/
+afat/
+**/afat/
 TMessagesProj/.cxx/
 TMessagesProj/jniLibs/
 TMessagesProj/jniRes/
-**/.DS_Store
-TMessagesProj/afat/
-TMessagesProj_App/afat/
-TMessagesProj_AppHockeyApp/afat/
-TMessagesProj_AppStandalone/afat/
-TMessagesProj_AppHuawei/afat/
+
+# Android Package & Compiled DEX Artifacts
+*.apk
+*.idsig
+*.ap_
+*.dex
+*.keystore
+*.jks
+
+# Intermediate & Temporary Build / Test files
+temp_*
+Tools/temp_*
+Tools/scratch_*
+Tools/vanilla_*
+Tools/test_*
+Tools/*.log
+Tools/*.png
+Tools/*.jpg
+Tools/*.txt
+Tools/*.so
+Tools/*.zip
+Tools/*.arsc
+Tools/*.xml
+Tools/res/
+Tools/new_icons/
+Tools/settings_icons/
+Tools/check_*
+Tools/dump_*
+Tools/find_*
+Tools/inspect_*
+Tools/disasm_*
+Tools/tmp_*
+check_sort.py
+tmp_read.py
+planner_dump.txt
+tombstone_*.txt
+curr_crop.png
+p2_crop.png
+p3_crop.png
+upload_occurrences.txt
+*manifest.txt
+*.tmp
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini

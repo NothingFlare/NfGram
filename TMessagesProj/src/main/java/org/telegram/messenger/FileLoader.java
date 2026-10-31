@@ -1,15 +1,16 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.messenger;
 
 import android.text.TextUtils;
 import android.util.SparseArray;
+
+import com.radolyn.ayugram.utils.AyuFileLocation;
 
 import org.telegram.tgnet.TLObject;
 import org.telegram.tgnet.TLRPC;
@@ -1254,13 +1255,13 @@ public class FileLoader extends BaseController {
             }
         } else {
             if (MessageObject.getMedia(message) instanceof TLRPC.TL_messageMediaDocument) {
-                return getPathToAttach(MessageObject.getMedia(message).document, null, MessageObject.getMedia(message).ttl_seconds != 0, useFileDatabaseQueue);
+                return getPathToAttach(MessageObject.getMedia(message).document, null, !MessageObject.isSecretMedia(message) && MessageObject.getMedia(message).ttl_seconds != 0, useFileDatabaseQueue);
             } else if (MessageObject.getMedia(message) instanceof TLRPC.TL_messageMediaPhoto) {
                 ArrayList<TLRPC.PhotoSize> sizes = MessageObject.getMedia(message).photo.sizes;
                 if (sizes.size() > 0) {
                     TLRPC.PhotoSize sizeFull = getClosestPhotoSizeWithSize(sizes, AndroidUtilities.getPhotoSize(), false, null, true);
                     if (sizeFull != null) {
-                        return getPathToAttach(sizeFull, null, MessageObject.getMedia(message).ttl_seconds != 0, useFileDatabaseQueue);
+                        return getPathToAttach(sizeFull, null, !MessageObject.isSecretMedia(message) && MessageObject.getMedia(message).ttl_seconds != 0, useFileDatabaseQueue);
                     }
                 }
             } else if (MessageObject.getMedia(message) instanceof TLRPC.TL_messageMediaWebPage) {
@@ -1384,6 +1385,24 @@ public class FileLoader extends BaseController {
                 dir = getDirectory(MEDIA_DIR_CACHE);
             }
         }
+
+        // --- AyuGram hook
+        if (attach instanceof TLRPC.PhotoSize) {
+            var obj = (TLRPC.PhotoSize) attach;
+            if (obj.location instanceof AyuFileLocation) {
+                return new File(((AyuFileLocation) obj.location).path);
+            }
+        } else if (attach instanceof TLRPC.TL_videoSize) {
+            var obj = (TLRPC.TL_videoSize) attach;
+            if (obj.location instanceof AyuFileLocation) {
+                return new File(((AyuFileLocation) obj.location).path);
+            }
+        } else if (attach instanceof AyuFileLocation) {
+            var obj = (AyuFileLocation) attach;
+            return new File(obj.path);
+        }
+        // --- AyuGram hook
+
         if (dir == null) {
             return new File("");
         }

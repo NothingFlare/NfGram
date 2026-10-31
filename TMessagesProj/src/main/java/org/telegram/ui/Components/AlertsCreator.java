@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.ui.Components;
@@ -66,6 +65,11 @@ import android.widget.Toast;
 import androidx.annotation.RawRes;
 import androidx.annotation.RequiresApi;
 import androidx.core.util.Consumer;
+
+import com.radolyn.ayugram.AyuConstants;
+import com.radolyn.ayugram.messages.AyuMessagesController;
+import com.radolyn.ayugram.messages.AyuSavePreferences;
+import com.radolyn.ayugram.utils.AyuState;
 
 import org.telegram.messenger.AccountInstance;
 import org.telegram.messenger.AndroidUtilities;
@@ -5892,6 +5896,10 @@ public class AlertsCreator {
             dialogId = -chat.id;
         }
 
+        // --- AyuGram hook
+        FrameLayout ayuFrameLayout = null;
+        // --- AyuGram hook
+
         int currentDate = ConnectionsManager.getInstance(currentAccount).getCurrentTime();
         boolean hasNonDiceMessages = false;
         if (selectedMessage != null) {
@@ -6042,6 +6050,7 @@ public class AlertsCreator {
             } else if (!hasNotOut && myMessagesCount > 0 && hasNonDiceMessages) {
                 hasDeleteForAllCheck = true;
                 FrameLayout frameLayout = new FrameLayout(activity);
+                ayuFrameLayout = frameLayout;
                 CheckBoxCell cell = new CheckBoxCell(activity, 1, resourcesProvider);
                 cell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
                 if (chat != null && hasNotOut) {
@@ -6099,6 +6108,7 @@ public class AlertsCreator {
             if (myMessagesCount > 0 && hasNonDiceMessages && (user == null || !UserObject.isDeleted(user))) {
                 hasDeleteForAllCheck = true;
                 FrameLayout frameLayout = new FrameLayout(activity);
+                ayuFrameLayout = frameLayout;
                 CheckBoxCell cell = new CheckBoxCell(activity, 1, resourcesProvider);
                 cell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
                 if (canDeleteInbox) {
@@ -6120,7 +6130,37 @@ public class AlertsCreator {
             }
         }
 
+        // --- AyuGram hook
+        final boolean[] keepLocally = {false};
+
+        if (ayuFrameLayout == null) {
+            ayuFrameLayout = new FrameLayout(activity);
+            builder.setView(ayuFrameLayout);
+            builder.setCustomViewOffset(9);
+        }
+
+        CheckBoxCell ayuCell = new CheckBoxCell(activity, 1, resourcesProvider);
+        ayuCell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
+        ayuCell.setText(LocaleController.getString(R.string.DeleteKeepLocally), "", false, false);
+        ayuCell.setTag(4);
+
+        ayuCell.setPadding(LocaleController.isRTL ? AndroidUtilities.dp(16) : AndroidUtilities.dp(8), 0, LocaleController.isRTL ? AndroidUtilities.dp(8) : AndroidUtilities.dp(16), 0);
+        ayuFrameLayout.addView(ayuCell, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.TOP | Gravity.LEFT, 0, 48 * ayuFrameLayout.getChildCount(), 0, 0));
+
+        ayuCell.setOnClickListener(v -> {
+            CheckBoxCell cell1 = (CheckBoxCell) v;
+            keepLocally[0] = !keepLocally[0];
+            cell1.setChecked(keepLocally[0], true);
+        });
+        // --- AyuGram hook
+
         DialogInterface.OnClickListener deleteAction = (dialogInterface, i) -> {
+            // --- AyuGram hook
+            if (keepLocally[0]) {
+                AyuState.setHideSelection(true, 1);
+            }
+            // --- AyuGram hook
+
             ArrayList<Integer> ids = null;
             long thisDialogId = dialogId;
             if (isSavedMessages) {
@@ -6133,6 +6173,15 @@ public class AlertsCreator {
                     for (int a = 0; a < selectedGroup.messages.size(); a++) {
                         MessageObject messageObject = selectedGroup.messages.get(a);
                         ids.add(messageObject.getId());
+                        // --- AyuGram hook
+                        if (!keepLocally[0]) {
+                            AyuState.permitDeleteMessage(thisDialogId, messageObject.getId());
+                        } else {
+                            var prefs = new AyuSavePreferences(messageObject.messageOwner, currentAccount);
+                            prefs.setDialogId(thisDialogId);
+                            AyuMessagesController.getInstance().onMessageDeleted(prefs);
+                        }
+                        // --- AyuGram hook
                         if (encryptedChat != null && messageObject.messageOwner.random_id != 0 && messageObject.type != 10) {
                             if (random_ids == null) {
                                 random_ids = new ArrayList<>();
@@ -6142,6 +6191,15 @@ public class AlertsCreator {
                     }
                 } else {
                     ids.add(selectedMessage.getId());
+                    // --- AyuGram hook
+                    if (!keepLocally[0]) {
+                        AyuState.permitDeleteMessage(thisDialogId, selectedMessage.getId());
+                    } else {
+                        var prefs = new AyuSavePreferences(selectedMessage.messageOwner, currentAccount);
+                        prefs.setDialogId(thisDialogId);
+                        AyuMessagesController.getInstance().onMessageDeleted(prefs);
+                    }
+                    // --- AyuGram hook
                     if (encryptedChat != null && selectedMessage.messageOwner.random_id != 0 && selectedMessage.type != 10) {
                         random_ids = new ArrayList<>();
                         random_ids.add(selectedMessage.messageOwner.random_id);
@@ -6150,12 +6208,32 @@ public class AlertsCreator {
                 if (mergeDialogId != 0 && selectedMessage.messageOwner.peer_id != null && selectedMessage.messageOwner.peer_id.chat_id == -mergeDialogId) {
                     thisDialogId = mergeDialogId;
                 }
+                // --- AyuGram hook
+                ArrayList<Integer> finalIds = ids;
+                long finalDialogId = thisDialogId;
+                AndroidUtilities.runOnUIThread(() -> {
+                    // invalidating views
+                    NotificationCenter.getInstance(currentAccount).postNotificationName(AyuConstants.MESSAGES_DELETED_NOTIFICATION, finalDialogId, finalIds);
+                });
+                // --- AyuGram hook
                 MessagesController.getInstance(currentAccount).deleteMessages(ids, random_ids, encryptedChat, thisDialogId, topicId, deleteForAll[0], mode);
             } else {
                 for (int a = 1; a >= 0; a--) {
                     ids = new ArrayList<>();
                     for (int b = 0; b < selectedMessages[a].size(); b++) {
                         ids.add(selectedMessages[a].keyAt(b));
+                        // --- AyuGram hook
+                        if (!keepLocally[0]) {
+                            AyuState.permitDeleteMessage((a == 1 && mergeDialogId != 0) ? mergeDialogId : thisDialogId, selectedMessages[a].keyAt(b));
+                        } else {
+                            var val = selectedMessages[a].valueAt(b);
+                            if (val != null) {
+                                var prefs = new AyuSavePreferences(val.messageOwner, currentAccount);
+                                prefs.setDialogId((a == 1 && mergeDialogId != 0) ? mergeDialogId : thisDialogId);
+                                AyuMessagesController.getInstance().onMessageDeleted(prefs);
+                            }
+                        }
+                        // --- AyuGram hook
                     }
                     ArrayList<Long> random_ids = null;
                     if (encryptedChat != null) {
@@ -6167,6 +6245,14 @@ public class AlertsCreator {
                             }
                         }
                     }
+                    // --- AyuGram hook
+                    ArrayList<Integer> finalIds = ids;
+                    long finalDialogId = (a == 1 && mergeDialogId != 0) ? mergeDialogId : thisDialogId;
+                    AndroidUtilities.runOnUIThread(() -> {
+                        // invalidating views
+                        NotificationCenter.getInstance(currentAccount).postNotificationName(AyuConstants.MESSAGES_DELETED_NOTIFICATION, finalDialogId, finalIds);
+                    });
+                    // --- AyuGram hook
                     MessagesController.getInstance(currentAccount).deleteMessages(ids, random_ids, encryptedChat, (a == 1 && mergeDialogId != 0) ? mergeDialogId : thisDialogId, topicId, deleteForAll[0], mode);
                     selectedMessages[a].clear();
                 }

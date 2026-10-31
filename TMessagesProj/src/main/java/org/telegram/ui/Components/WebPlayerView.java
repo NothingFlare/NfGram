@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.ui.Components;
@@ -40,6 +39,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+
+import com.radolyn.ayugram.AyuAppearanceConfig;
 
 import androidx.annotation.Keep;
 
@@ -1957,7 +1958,7 @@ public class WebPlayerView extends ViewGroup implements VideoPlayer.VideoPlayerD
         if (inlineButton == null) {
             return;
         }
-        inlineButton.setImageResource(isInline ? R.drawable.ic_goinline : R.drawable.ic_outinline);
+        inlineButton.setImageResource(AyuAppearanceConfig.useSolarIcons ? R.drawable.header_goinline_solar : isInline ? R.drawable.ic_goinline : R.drawable.ic_outinline);
         inlineButton.setVisibility(videoPlayer.isPlayerPrepared() ? VISIBLE : GONE);
         if (isInline) {
             inlineButton.setLayoutParams(LayoutHelper.createFrame(40, 40, Gravity.RIGHT | Gravity.TOP));

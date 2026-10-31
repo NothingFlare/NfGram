@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 apply plugin: 'com.android.application'
 
 repositories {
@@ -24,15 +31,58 @@ dependencies {
 android {
     compileSdkVersion 34
     buildToolsVersion '34.0.0'
+    ndkVersion "21.4.7075529"
 
-    defaultConfig.applicationId = APP_PACKAGE
+    defaultConfig {
+        applicationId APP_PACKAGE
+        minSdkVersion 24
+        targetSdkVersion 34
+        versionCode 54690
+        versionName "11.4.2"
+        multiDexEnabled true
+
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+    }
 
     sourceSets.main.jniLibs.srcDirs = ['../TMessagesProj/jni/']
+
+    signingConfigs {
+        debug {
+            storeFile file('../TMessagesProj/config/release.keystore')
+            storePassword "android"
+            keyAlias "androidkey"
+            keyPassword "android"
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+        release {
+            storeFile file('../TMessagesProj/config/release.keystore')
+            storePassword "android"
+            keyAlias "androidkey"
+            keyPassword "android"
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+        }
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+    }
 
     lintOptions {
         disable 'MissingTranslation'
         disable 'ExtraTranslation'
         disable 'BlockedPrivateApi'
+        checkReleaseBuilds false
     }
 
     dexOptions {
@@ -40,164 +90,16 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
         coreLibraryDesugaringEnabled true
-    }
-
-    signingConfigs {
-        debug {
-            storeFile file("../TMessagesProj/config/release.keystore")
-            storePassword RELEASE_STORE_PASSWORD
-            keyAlias RELEASE_KEY_ALIAS
-            keyPassword RELEASE_KEY_PASSWORD
-        }
-
-        release {
-            storeFile file("../TMessagesProj/config/release.keystore")
-            storePassword RELEASE_STORE_PASSWORD
-            keyAlias RELEASE_KEY_ALIAS
-            keyPassword RELEASE_KEY_PASSWORD
-        }
-    }
-
-    buildTypes {
-        debug {
-            debuggable true
-            jniDebuggable true
-            signingConfig signingConfigs.debug
-            applicationIdSuffix ".beta"
-            minifyEnabled true
-            shrinkResources false
-            multiDexEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), '../TMessagesProj/proguard-rules.pro', '../TMessagesProj/proguard-rules-beta.pro'
-            ndk.debugSymbolLevel = 'FULL'
-        }
-
-        standalone {
-            debuggable false
-            jniDebuggable false
-            signingConfig signingConfigs.release
-            applicationIdSuffix ".web"
-            minifyEnabled true
-            shrinkResources false
-            multiDexEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), '../TMessagesProj/proguard-rules.pro'
-            ndk.debugSymbolLevel = 'FULL'
-        }
-
-        release {
-            debuggable false
-            jniDebuggable false
-            signingConfig signingConfigs.release
-            minifyEnabled true
-            shrinkResources false
-            multiDexEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), '../TMessagesProj/proguard-rules.pro'
-            ndk.debugSymbolLevel = 'FULL'
-        }
-    }
-
-    sourceSets.debug {
-        manifest.srcFile '../TMessagesProj/config/debug/AndroidManifest.xml'
-    }
-
-    sourceSets.standalone {
-        manifest.srcFile '../TMessagesProj/config/release/AndroidManifest.xml'
-    }
-
-    sourceSets.release {
-        manifest.srcFile '../TMessagesProj/config/release/AndroidManifest.xml'
-    }
-
-    flavorDimensions "minApi"
-
-    productFlavors {
-        bundleAfat {
-            ndk {
-                abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-            }
-            ext {
-                abiVersionCode = 1
-            }
-        }
-        bundleAfat_SDK23 {
-            ndk {
-                abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-            }
-            sourceSets.debug {
-                manifest.srcFile '../TMessagesProj/config/debug/AndroidManifest_SDK23.xml'
-            }
-            sourceSets.release {
-                manifest.srcFile '../TMessagesProj/config/release/AndroidManifest_SDK23.xml'
-            }
-            minSdkVersion 23
-            ext {
-                abiVersionCode = 2
-            }
-        }
-        afat {
-            ndk {
-                abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-            }
-            sourceSets.debug {
-                manifest.srcFile '../TMessagesProj/config/debug/AndroidManifest_SDK23.xml'
-            }
-            sourceSets.release {
-                manifest.srcFile '../TMessagesProj/config/release/AndroidManifest_SDK23.xml'
-            }
-            sourceSets.standalone {
-                manifest.srcFile '../TMessagesProj/config/release/AndroidManifest_standalone.xml'
-            }
-            ext {
-                abiVersionCode = 9
-            }
-        }
-    }
-
-    defaultConfig.versionCode = Integer.parseInt(APP_VERSION_CODE)
-
-    applicationVariants.all { variant ->
-        variant.outputs.all { output ->
-            outputFileName = "app.apk"
-            output.versionCodeOverride = defaultConfig.versionCode * 10 + variant.productFlavors.get(0).abiVersionCode
-        }
-    }
-
-    variantFilter { variant ->
-        def names = variant.flavors*.name
-        if (variant.buildType.name != "release" && !names.contains("afat")) {
-            setIgnore(true)
-        }
-    }
-
-    defaultConfig {
-        minSdkVersion 19
-        targetSdkVersion 34
-        versionName APP_VERSION_NAME
-        ndkVersion "21.4.7075529"
-
-        multiDexEnabled true
-
-        vectorDrawables.generatedDensities = ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi']
-
-        externalNativeBuild {
-            cmake {
-                version '3.10.2'
-                arguments '-DANDROID_STL=c++_static', '-DANDROID_PLATFORM=android-16'
-            }
-        }
     }
 
     buildFeatures {
         buildConfig = true
     }
-    namespace 'org.telegram.messenger.regular'
 
-    lintOptions {
-        checkReleaseBuilds false
-    }
+    namespace 'org.telegram.messenger.regular'
 }
 
 apply plugin: 'com.google.gms.google-services'

@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.messenger;
 
 import android.view.Window;
@@ -64,11 +71,8 @@ public class FlagSecureReason {
             return;
         }
 
-        if (isSecuredNow(window)) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-        } else {
-            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
-        }
+        // AyuGram: removed
+        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
     }
 
     public static boolean isSecuredNow(Window window) {

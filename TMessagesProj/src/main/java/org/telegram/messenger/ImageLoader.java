@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.messenger;
@@ -37,6 +36,8 @@ import android.util.SparseArray;
 
 import androidx.annotation.RequiresApi;
 import androidx.core.graphics.ColorUtils;
+
+import com.radolyn.ayugram.AyuConstants;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -126,9 +127,9 @@ public class ImageLoader {
     private LinkedList<HttpImageTask> httpTasks = new LinkedList<>();
     private LinkedList<ArtworkLoadTask> artworkTasks = new LinkedList<>();
     private DispatchQueuePriority cacheOutQueue = new DispatchQueuePriority("cacheOutQueue");
-    private DispatchQueue cacheThumbOutQueue = new DispatchQueue("cacheThumbOutQueue");
-    private DispatchQueue thumbGeneratingQueue = new DispatchQueue("thumbGeneratingQueue");
-    private DispatchQueue imageLoadQueue = new DispatchQueue("imageLoadQueue");
+    private ParallelDispatchQueue cacheThumbOutQueue = new ParallelDispatchQueue("cacheThumbOutQueue");
+    private ParallelDispatchQueue thumbGeneratingQueue = new ParallelDispatchQueue("thumbGeneratingQueue");
+    private ParallelDispatchQueue imageLoadQueue = new ParallelDispatchQueue("imageLoadQueue");
     private HashMap<String, String> replacedBitmaps = new HashMap<>();
     private ConcurrentHashMap<String, long[]> fileProgresses = new ConcurrentHashMap<>();
     private HashMap<String, ThumbGenerateTask> thumbGenerateTasks = new HashMap<>();
@@ -2452,14 +2453,14 @@ public class ImageLoader {
                     try {
                         if (ApplicationLoader.applicationContext.getExternalMediaDirs().length > 0) {
                             publicMediaDir = getPublicStorageDir();
-                            publicMediaDir = new File(publicMediaDir, "Telegram");
+                            publicMediaDir = new File(publicMediaDir, AyuConstants.APP_NAME);
                             publicMediaDir.mkdirs();
                         }
                     } catch (Exception e) {
                         FileLog.e(e);
                     }
                     newPath = ApplicationLoader.applicationContext.getExternalFilesDir(null);
-                    telegramPath = new File(newPath, "Telegram");
+                    telegramPath = new File(newPath, AyuConstants.APP_NAME);
                 } else {
                     boolean isSdCard = !TextUtils.isEmpty(SharedConfig.storageCacheDir) && path.getAbsolutePath().startsWith(SharedConfig.storageCacheDir);
                     if (!isSdCard) {
@@ -2468,7 +2469,7 @@ public class ImageLoader {
                             path = ApplicationLoader.applicationContext.getExternalFilesDir(null);
                         }
                     }
-                    telegramPath = new File(path, "Telegram");
+                    telegramPath = new File(path, AyuConstants.APP_NAME);
                 }
                 telegramPath.mkdirs();
 
@@ -2478,7 +2479,7 @@ public class ImageLoader {
                         File dir = dirs.get(a);
                         if (dir != null && !TextUtils.isEmpty(SharedConfig.storageCacheDir) && dir.getAbsolutePath().startsWith(SharedConfig.storageCacheDir)) {
                             path = dir;
-                            telegramPath = new File(path, "Telegram");
+                            telegramPath = new File(path, AyuConstants.APP_NAME);
                             telegramPath.mkdirs();
                             break;
                         }
@@ -2487,7 +2488,7 @@ public class ImageLoader {
 
                 if (telegramPath.isDirectory()) {
                     try {
-                        File imagePath = new File(telegramPath, "Telegram Images");
+                        File imagePath = new File(telegramPath, AyuConstants.APP_NAME + " Images");
                         imagePath.mkdir();
                         if (imagePath.isDirectory() && canMoveFiles(cachePath, imagePath, FileLoader.MEDIA_DIR_IMAGE)) {
                             mediaDirs.put(FileLoader.MEDIA_DIR_IMAGE, imagePath);
@@ -2500,7 +2501,7 @@ public class ImageLoader {
                     }
 
                     try {
-                        File videoPath = new File(telegramPath, "Telegram Video");
+                        File videoPath = new File(telegramPath, AyuConstants.APP_NAME + " Video");
                         videoPath.mkdir();
                         if (videoPath.isDirectory() && canMoveFiles(cachePath, videoPath, FileLoader.MEDIA_DIR_VIDEO)) {
                             mediaDirs.put(FileLoader.MEDIA_DIR_VIDEO, videoPath);
@@ -2513,7 +2514,7 @@ public class ImageLoader {
                     }
 
                     try {
-                        File audioPath = new File(telegramPath, "Telegram Audio");
+                        File audioPath = new File(telegramPath, AyuConstants.APP_NAME + " Audio");
                         audioPath.mkdir();
                         if (audioPath.isDirectory() && canMoveFiles(cachePath, audioPath, FileLoader.MEDIA_DIR_AUDIO)) {
                             AndroidUtilities.createEmptyFile(new File(audioPath, ".nomedia"));
@@ -2527,7 +2528,7 @@ public class ImageLoader {
                     }
 
                     try {
-                        File documentPath = new File(telegramPath, "Telegram Documents");
+                        File documentPath = new File(telegramPath, AyuConstants.APP_NAME + " Documents");
                         documentPath.mkdir();
                         if (documentPath.isDirectory() && canMoveFiles(cachePath, documentPath, FileLoader.MEDIA_DIR_DOCUMENT)) {
                             AndroidUtilities.createEmptyFile(new File(documentPath, ".nomedia"));
@@ -2541,7 +2542,7 @@ public class ImageLoader {
                     }
 
                     try {
-                        File normalNamesPath = new File(telegramPath, "Telegram Files");
+                        File normalNamesPath = new File(telegramPath, AyuConstants.APP_NAME + " Files");
                         normalNamesPath.mkdir();
                         if (normalNamesPath.isDirectory() && canMoveFiles(cachePath, normalNamesPath, FileLoader.MEDIA_DIR_FILES)) {
                             AndroidUtilities.createEmptyFile(new File(normalNamesPath, ".nomedia"));
@@ -2570,7 +2571,7 @@ public class ImageLoader {
                 }
                 if (publicMediaDir != null && publicMediaDir.isDirectory()) {
                     try {
-                        File imagePath = new File(publicMediaDir, "Telegram Images");
+                        File imagePath = new File(publicMediaDir, AyuConstants.APP_NAME + " Images");
                         imagePath.mkdir();
                         if (imagePath.isDirectory() && canMoveFiles(cachePath, imagePath, FileLoader.MEDIA_DIR_IMAGE)) {
                             mediaDirs.put(FileLoader.MEDIA_DIR_IMAGE_PUBLIC, imagePath);
@@ -2583,7 +2584,7 @@ public class ImageLoader {
                     }
 
                     try {
-                        File videoPath = new File(publicMediaDir, "Telegram Video");
+                        File videoPath = new File(publicMediaDir, AyuConstants.APP_NAME + " Video");
                         videoPath.mkdir();
                         if (videoPath.isDirectory() && canMoveFiles(cachePath, videoPath, FileLoader.MEDIA_DIR_VIDEO)) {
                             mediaDirs.put(FileLoader.MEDIA_DIR_VIDEO_PUBLIC, videoPath);

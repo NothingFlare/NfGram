@@ -1,0 +1,43 @@
+/*
+ * Copyright (C) Radolyn
+ *
+ * Licensed under GNU GPLv3.
+ */
+
+package com.radolyn.ayugram.sync;
+
+import com.radolyn.ayugram.AyuConfig;
+
+public class AyuSyncConfig {
+    private static String getWebSocketProtocol() {
+        return AyuConfig.useSecureConnection ? "wss://" : "ws://";
+    }
+
+    private static String getHTTPProtocol() {
+        return AyuConfig.useSecureConnection ? "https://" : "http://";
+    }
+
+    public static String getWebSocketURL() {
+        return getWebSocketProtocol() + AyuConfig.getSyncServerURL() + "/sync/ws/v1";
+    }
+
+    public static String getUserDataURL() {
+        return getHTTPProtocol() + AyuConfig.getSyncServerURL() + "/user/v1";
+    }
+
+    public static String getRegisterDeviceURL() {
+        return getHTTPProtocol() + AyuConfig.getSyncServerURL() + "/sync/register/v1";
+    }
+
+    public static String getForceSyncURL() {
+        return getHTTPProtocol() + AyuConfig.getSyncServerURL() + "/sync/force/v1";
+    }
+
+    public static String getToken() {
+        return AyuConfig.getSyncServerToken();
+    }
+
+    public static String getProfileURL() {
+        return getHTTPProtocol() + AyuConfig.getSyncServerURL() + "/ui/profile?token=" + AyuConfig.getSyncServerToken();
+    }
+}

@@ -1,9 +1,8 @@
 /*
- * This is the source code of Telegram for Android v. 1.3.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
  *
- * Copyright Nikolai Kudashov, 2013-2018.
+ * Licensed under GNU GPLv3.
  */
 
 package org.telegram.ui.Cells;
@@ -50,6 +49,9 @@ import android.view.animation.OvershootInterpolator;
 import androidx.collection.LongSparseArray;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.ColorUtils;
+
+import com.radolyn.ayugram.AyuFilter;
+import com.radolyn.ayugram.AyuUtils;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
@@ -3169,6 +3171,12 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                 invalidate = true;
             }
         }
+
+        // --- AyuGram hook
+        if (AyuFilter.isFiltered(message, null)) {
+            AyuUtils.blurify(message);
+        }
+        // --- AyuGram hook
 
         if (!animated) {
             dialogMutedProgress = (dialogMuted || drawUnmute) ? 1f : 0f;

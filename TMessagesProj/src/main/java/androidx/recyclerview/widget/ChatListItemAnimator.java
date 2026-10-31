@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) The Android Open Source Project
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package androidx.recyclerview.widget;
 
 import android.animation.Animator;

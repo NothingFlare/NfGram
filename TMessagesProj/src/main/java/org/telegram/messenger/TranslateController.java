@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) Nikolai Kudashov
+ * Copyright (C) 2026 NothingFlare (Modifications)
+ *
+ * Licensed under GNU GPLv3.
+ */
+
 package org.telegram.messenger;
 
 import android.content.Context;
@@ -74,7 +81,7 @@ public class TranslateController extends BaseController {
 
     public boolean isChatTranslateEnabled() {
         if (chatTranslateEnabled == null) {
-            chatTranslateEnabled = messagesController.getMainSettings().getBoolean("translate_chat_button", true);
+            chatTranslateEnabled = messagesController.getMainSettings().getBoolean("translate_chat_button", false);
         }
         return chatTranslateEnabled;
     }
