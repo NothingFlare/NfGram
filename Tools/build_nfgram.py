@@ -554,7 +554,7 @@ patch_notch.extend(b'\x0c\x00')                 # move-result-object v0
 patch_notch.extend(b'\x60\x01\xdb\x88')         # sget v1, NotificationCenter.currentUserPremiumStatusChanged
 patch_notch.extend(b'\x12\x02')                 # const/4 v2, 0
 patch_notch.extend(b'\x23\x22\x70\x3d')         # new-array v2, v2, [Object
-patch_notch.extend(b'\x6e\x30\x12\xf6\x00\x02') # invoke-virtual {v0, v1, v2}, NotificationCenter.postNotificationName
+patch_notch.extend(b'\x6e\x30\x12\xf6\x10\x02') # invoke-virtual {v0, v1, v2}, NotificationCenter.postNotificationName
 
 # Show Bulletin:
 patch_notch.extend(b'\x71\x10\x8c\xf9\x04\x00') # invoke-static {v4}, BulletinFactory.of
@@ -648,12 +648,12 @@ manifest_count = manifest.count(old_pkg_u16)
 assert manifest_count == 12
 manifest = manifest.replace(old_pkg_u16, new_pkg_u16)
 
-# Bump versionCode from 71129 to 71143
+# Bump versionCode from 71129 to 71145
 old_vc = struct.pack("<I", 71129)
-new_vc = struct.pack("<I", 71143)
+new_vc = struct.pack("<I", 71145)
 assert manifest.count(old_vc) == 1
 manifest = manifest.replace(old_vc, new_vc)
-print("Bumped versionCode to 71143 in AndroidManifest.xml")
+print("Bumped versionCode to 71145 in AndroidManifest.xml")
 
 print("=== STEP 3: Patch resources.arsc ===")
 arsc_pkg_count = arsc.count(old_pkg_u16)
