@@ -185,12 +185,26 @@ dex1[12:32] = hashlib.sha1(dex1[32:]).digest()
 dex1[8:12] = struct.pack("<I", zlib.adler32(dex1[12:]) & 0xFFFFFFFF)
 
 # -------------------------------------------------------------
-# 1.1 Patch classes4.dex: NfGram Hub + General Settings + Notch Customization
+# 1.1 Patch classes4.dex: NfGram Hub + Authentic ExteraGram Settings (Photo 3)
 # -------------------------------------------------------------
+# We patch string 0xa1f9 ("exteraGram.app" -> "lighthouse_top") for channel username
+# so showNoticeBeforeOpeningChat("lighthouse_top") opens @lighthouse_top
+# String 49344 (0xc0c0): originally 'lightnessEnhancementParam' (25 chars)
+# Replace with 'lighthouse_top           ' (25 chars) - preserves exact length and alphabetical sort!
 off_49344 = 0x7c59a4
 assert dex4[off_49344 : off_49344 + 27] == b"\x19lightnessEnhancementParam\x00"
 dex4[off_49344 : off_49344 + 27] = b"\x19lighthouse_top           \x00"
 print("Patched string 0xc0c0 to lighthouse_top (padded) in classes4.dex")
+
+# 1. MainPreferencesActivity.onClick:
+# Layout:
+# - 0x38a624..0x38a630: Dispatch (iget v1, UItem.id; packed-switch v1, table) (12 bytes)
+# - 0x38a630..0x38a642: :open_extera_settings (new-instance MainPreferencesActivity, hasOwnBackground=1, goto :present) (18 bytes)
+# - 0x38a642..0x38a66e: Case 8 (pos_c8 = 0x38a642) (if hasOwnBackground -> exteraForum; else new AyuMainPreferencesActivity; :present_and_ret) (44 bytes)
+# - 0x38a66e..0x38a68e: Case 7 (pos_c7 = 0x38a66e) (trim lighthouse_top; if hasOwnBackground -> exteraGram; showNoticeBeforeOpeningChat) (32 bytes)
+# - 0x38a68e..0x38a692: Padding (4 bytes)
+# - 0x38a692..0x38a6a6: Case 9 (Crowdin, authentic 20 bytes untouched)
+# - 0x38a6a6..0x38a6be: Case 10 (pos_c10 = 0x38a6a6) (if hasOwnBackground == 0 -> goto :open_extera_settings; else open https://exteraGram.app) (24 bytes)
 
 base_switch = 0x38a628
 
@@ -202,6 +216,8 @@ dispatch.extend(b"\x2b\x01" + struct.pack("<i", sw_rel)) # packed-switch v1, tab
 dispatch.extend(b"\x0e\x00") # return-void
 assert len(dispatch) == 12
 
+# :open_extera_settings at 0x38a630 (18 bytes)
+# Jumps to :present_and_ret in Case 8 (at 0x38a666): (0x38a666 - 0x38a640) // 2 = 19 (0x13)
 open_ext = bytearray()
 open_ext.extend(b"\x22\x01\x9e\x15")         # new-instance v1, MainPreferencesActivity (0x38a630)
 open_ext.extend(b"\x70\x10\xbe\x74\x01\x00") # invoke-direct {v1}, <init> (0x38a634)
@@ -210,6 +226,7 @@ open_ext.extend(b"\x5c\x12\xba\x8e")         # iput-boolean v2, v1, hasOwnBackgr
 open_ext.extend(b"\x28\x13")                 # goto +19 -> 0x38a666 (0x38a640)
 assert len(open_ext) == 18
 
+# Case 8 at 0x38a642 (44 bytes)
 pos_c8 = 0x38a642
 c8 = bytearray()
 c8.extend(b"\x55\x01\xba\x8e") # iget-boolean v1, v0, hasOwnBackground (0x38a642)
@@ -217,14 +234,17 @@ c8.extend(b"\x38\x01\x08\x00") # if-eqz v1, +8 -> :open_ayu_settings (0x38a646)
 c8.extend(b"\x1a\x01\xf6\xa1")         # const-string v1, "exteraForum" (0x38a64a)
 c8.extend(b"\x70\x20\xc6\x74\x10\x00") # invoke-direct {v0, v1}, showNoticeBeforeOpeningChat (0x38a64e)
 c8.extend(b"\x0e\x00")                 # return-void (0x38a654)
+# :open_ayu_settings (at 0x38a656)
 c8.extend(b"\x1c\x01\x01\x35")         # const-class v1, AyuMainPreferencesActivity (0x38a656)
 c8.extend(b"\x6e\x10\x01\xee\x01\x00") # invoke-static {v1}, AyuFragmentUtils.getOrCreateInstance (0x38a65a)
 c8.extend(b"\x0c\x01")                 # move-result-object v1 (0x38a660)
 c8.extend(b"\x1f\x01\x58\x39")         # check-cast v1, BaseFragment (0x38a662)
+# :present_and_ret (at 0x38a666)
 c8.extend(b"\x6e\x20\x09\xf8\x10\x00") # invoke-virtual {v0, v1}, presentFragment (0x38a666)
 c8.extend(b"\x0e\x00")                 # return-void (0x38a66c)
 assert len(c8) == 44
 
+# Case 7 at 0x38a66e (32 bytes)
 pos_c7 = 0x38a66e
 c7 = bytearray()
 c7.extend(b"\x1a\x01\xc0\xc0")         # const-string v1, "lighthouse_top           " (string@c0c0) (0x38a66e)
@@ -233,12 +253,14 @@ c7.extend(b"\x0c\x01")                 # move-result-object v1 (0x38a678)
 c7.extend(b"\x55\x02\xba\x8e")         # iget-boolean v2, v0, hasOwnBackground (0x38a67a)
 c7.extend(b"\x38\x02\x04\x00")         # if-eqz v2, +4 -> :show_chan (0x38a67e)
 c7.extend(b"\x1a\x01\xf7\xa1")         # const-string v1, "exteraGram" (string@a1f7) (0x38a682)
+# :show_chan (at 0x38a686)
 c7.extend(b"\x70\x20\xc6\x74\x10\x00") # invoke-direct {v0, v1}, showNoticeBeforeOpeningChat (0x38a686)
 c7.extend(b"\x0e\x00")                 # return-void (0x38a68c)
 assert len(c7) == 32
 
 pad = b"\x00\x00\x00\x00"
 
+# Case 10 at 0x38a6a6 (24 bytes)
 pos_c10 = 0x38a6a6
 c10 = bytearray()
 c10.extend(b"\x55\x01\xba\x8e") # iget-boolean v1, v0, hasOwnBackground (0x38a6a6)
@@ -260,10 +282,10 @@ dex4[0x38a66e : 0x38a68e] = c7
 dex4[0x38a68e : 0x38a692] = pad
 dex4[0x38a6a6 : 0x38a6be] = c10
 
-# Switch targets: Key 2 is GeneralPreferencesActivity (0x38a706)
+# Update switch targets in Switch Table at 0x38a74c:
 targets = [
     0x38a718, # Key 1: HEADER_CELL
-    0x38a706, # Key 2: GENERAL -> GeneralPreferencesActivity
+    0x38a706, # Key 2: GENERAL
     0x38a6f4, # Key 3: APPEARANCE
     0x38a6e2, # Key 4: CHATS
     0x38a6d0, # Key 5: PLUGINS
@@ -278,14 +300,22 @@ for i, t in enumerate(targets):
     dex4[0x38a74c + i*4 : 0x38a74c + (i+1)*4] = struct.pack("<i", off_val)
 print("Patched MainPreferencesActivity.onClick and switch targets in classes4.dex")
 
-# MainPreferencesActivity.fillItems:
-# Root mode:
-#   Item 1: exteraGram (red squircle #ffe83030, paper plane)
-#   Item 2: AyuGram (blue/purple squircle #ff9570ff, wings)
-#   Item 3: General Settings (cyan squircle #ff00a8ff, msg_media icon 0x7f080517, string R.string.General)
-# Submenu mode:
-#   Categories: General, Appearance, Chats, Plugins, Other
-#   Links: Channel, Forum
+# 2. MainPreferencesActivity.fillItems:
+#    - Root mode (hasOwnBackground == false):
+#        1. HeaderSettingsCell title -> "NfGram"
+#        2. Categories header
+#        3. Item 1: exteraGram (WEBSITE, 0x7f080326 scaled paper plane, RED 0xffe83030, text "Preferences" = "РќР°СЃС‚СЂРѕР№РєРё exteraGram")
+#        4. Item 2: AyuGram (FORUM, 0x7f080327 scaled wings, BLUE/PURPLE 0xff9570ff, text "AyuPreferences" = "РќР°СЃС‚СЂРѕР№РєРё AyuGram")
+#        5. Shadow
+#        6. Links header
+#        7. Channel (@lighthouse_top)
+#        8. Shadow
+#    - Submenu mode (hasOwnBackground == true, Photo 3):
+#        1. HeaderSettingsCell (vanilla authentic "exteraGram", red squircle, version)
+#        2. Categories: General, Appearance, Chats, Plugins, Other
+#        3. Shadow
+#        4. Links: Channel, Forum, Crowdin, Website
+#        5. Shadow
 start_fi = 0x38a3d8
 code_fi = bytearray()
 code_fi.extend(b"\x08\x00\x11\x00") # move-object/from16 v0, v17
@@ -298,15 +328,18 @@ ph_sub_hdr = len(code_fi)
 code_fi.extend(b"\x39\x03\x00\x00") # if-nez v3, -> :add_header
 ph_null_hdr = len(code_fi)
 code_fi.extend(b"\x38\x02\x00\x00") # if-eqz v2, -> :add_header
+# Title -> 'NfGram'
 code_fi.extend(b"\x54\x23\x56\x40") # iget-object v3, v2, titleTextView
 code_fi.extend(b"\x15\x04\x0f\x7f") # const/high16 v4, 0x7f0f (AppName)
 code_fi.extend(b"\x71\x10\x80\xf5\x04\x00") # invoke-static {v4}, LocaleController.getString
 code_fi.extend(b"\x0c\x04")                 # move-result-object v4
 code_fi.extend(b"\x6e\x20\x38\x09\x43\x00") # invoke-virtual {v3, v4}, TextView.setText
+# Squircle -> Green #ff2ecc71 (for NfGram!)
 code_fi.extend(b"\x54\x23\x53\x40")         # iget-object v3, v2, imageView (field@4053)
 code_fi.extend(b"\x14\x04\x71\xcc\x2e\xff") # const v4, 0xff2ecc71 (green)
 code_fi.extend(b"\x6e\x20\xc0\x07\x43\x00") # invoke-virtual {v3, v4}, View.setBackgroundColor (method@07c0)
 
+# :add_header
 pos_add_hdr = len(code_fi)
 code_fi[ph_sub_hdr + 2 : ph_sub_hdr + 4] = struct.pack('<h', (pos_add_hdr - ph_sub_hdr) // 2)
 code_fi[ph_null_hdr + 2 : ph_null_hdr + 4] = struct.pack('<h', (pos_add_hdr - ph_null_hdr) // 2)
@@ -318,6 +351,7 @@ code_fi.extend(b"\x12\x13")                 # const/4 v3, 1 (HEADER_CELL id)
 code_fi.extend(b"\x6e\x20\xe9\xfa\x32\x00") # invoke-virtual {v2, v3}, UItem.setId
 code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
 
+# 2. Categories Header:
 code_fi.extend(b"\x60\x02\x50\x8a")         # sget v2, R.string.Categories
 code_fi.extend(b"\x71\x10\x80\xf5\x02\x00") # invoke-static {v2}, LocaleController.getString
 code_fi.extend(b"\x0c\x02")                 # move-result-object v2
@@ -325,10 +359,12 @@ code_fi.extend(b"\x71\x10\xd1\xfa\x02\x00") # invoke-static {v2}, UItem.asHeader
 code_fi.extend(b"\x0c\x02")                 # move-result-object v2
 code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
 
+# 3. Branch on hasOwnBackground for categories:
 code_fi.extend(b"\x55\x12\xba\x8e") # iget-boolean v2, v1, hasOwnBackground
 ph_sub_cat = len(code_fi)
 code_fi.extend(b"\x39\x02\x00\x00") # if-nez v2, -> :sub_categories
 
+# --- ROOT CATEGORIES (UItem.asButton method@fac1: id, icon, text) ---
 # Item 1: exteraGram
 code_fi.extend(b"\x13\x02\x0a\x00")         # const/16 v2, 10 (WEBSITE id)
 code_fi.extend(b"\x14\x04\x26\x03\x08\x7f") # const v4, 0x7f080326 (plane)
@@ -353,27 +389,17 @@ code_fi.extend(b"\x14\x03\xff\x70\x95\xff") # const v3, 0xff9570ff (blue/purple)
 code_fi.extend(b"\x6e\x30\xe6\xfa\x42\x03") # invoke-virtual {v2, v4, v3}, UItem.setColorfulIcon (method@fae6)
 code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
 
-# Item 3: General Settings ("Общие настройки" below AyuGram)
-code_fi.extend(b"\x13\x02\x02\x00")         # const/16 v2, 2 (GENERAL id)
-code_fi.extend(b"\x60\x04\x6b\x89")         # sget v4, msg_media (0x7f080517)
-code_fi.extend(b"\x60\x03\xed\x8a")         # sget v3, General (field@8aed)
-code_fi.extend(b"\x71\x10\x80\xf5\x03\x00") # invoke-static {v3}, LocaleController.getString
-code_fi.extend(b"\x0c\x03")                 # move-result-object v3
-code_fi.extend(b"\x71\x30\xc1\xfa\x42\x03") # invoke-static {v2, v4, v3}, UItem.asButton
-code_fi.extend(b"\x0c\x02")                 # move-result-object v2
-code_fi.extend(b"\x14\x03\xff\xa8\x00\xff") # const v3, 0xff00a8ff (cyan squircle)
-code_fi.extend(b"\x6e\x30\xe6\xfa\x42\x03") # invoke-virtual {v2, v4, v3}, UItem.setColorfulIcon
-code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
-
 ph_after_cat = len(code_fi)
 code_fi.extend(b"\x28\x00") # goto -> :after_categories
 
-# SUBMENU CATEGORIES
+# --- SUBMENU CATEGORIES (Compact Loop: id v2 = 2..6) ---
 pos_sub_cat = len(code_fi)
 code_fi[ph_sub_cat + 2 : ph_sub_cat + 4] = struct.pack('<h', (pos_sub_cat - ph_sub_cat) // 2)
 
 code_fi.extend(b"\x12\x22") # const/4 v2, 2
+
 pos_loop = len(code_fi)
+# switch on v2 (2: General, 3: Appearance, 4: Chats, 5: Plugins, 6: Other)
 code_fi.extend(b"\x12\x27") # const/4 v7, 2
 ph_is2 = len(code_fi)
 code_fi.extend(b"\x32\x72\x00\x00") # if-eq v2, v7, :is_2
@@ -387,11 +413,13 @@ code_fi.extend(b"\x12\x57") # const/4 v7, 5
 ph_is5 = len(code_fi)
 code_fi.extend(b"\x32\x72\x00\x00") # if-eq v2, v7, :is_5
 
+# else is 6 (Other)
 code_fi.extend(b"\x60\x04\x58\x89") # sget v4, msg_fave (field@8958)
 code_fi.extend(b"\x60\x03\x34\x8b") # sget v3, LocalOther (field@8b34)
 ph_goto_add = len(code_fi)
 code_fi.extend(b"\x28\x00")
 
+# :is_2 (General)
 pos_is2 = len(code_fi)
 code_fi[ph_is2 + 2 : ph_is2 + 4] = struct.pack('<h', (pos_is2 - ph_is2) // 2)
 code_fi.extend(b"\x60\x04\x6b\x89") # sget v4, msg_media (field@896b)
@@ -399,13 +427,15 @@ code_fi.extend(b"\x60\x03\xed\x8a") # sget v3, General (field@8aed)
 ph_goto2 = len(code_fi)
 code_fi.extend(b"\x28\x00")
 
+# :is_3 (Appearance)
 pos_is3 = len(code_fi)
 code_fi[ph_is3 + 2 : ph_is3 + 4] = struct.pack('<h', (pos_is3 - ph_is3) // 2)
 code_fi.extend(b"\x60\x04\x90\x89") # sget v4, msg_theme (field@8990)
-code_fi.extend(b"\x60\x03\x23\x8a") # sget v3, Appearance (field@8a23)
+code_fi.extend(b"\x60\x03\x23\x8a") # sget v3, Appearance (field@8a23) ("Р’РЅРµС€РЅРёР№ РІРёРґ")
 ph_goto3 = len(code_fi)
 code_fi.extend(b"\x28\x00")
 
+# :is_4 (Chats)
 pos_is4 = len(code_fi)
 code_fi[ph_is4 + 2 : ph_is4 + 4] = struct.pack('<h', (pos_is4 - ph_is4) // 2)
 code_fi.extend(b"\x60\x04\x54\x89") # sget v4, msg_discussion (field@8954)
@@ -413,11 +443,13 @@ code_fi.extend(b"\x60\x03\xf7\x8b") # sget v3, SearchAllChatsShort (field@8bf7)
 ph_goto4 = len(code_fi)
 code_fi.extend(b"\x28\x00")
 
+# :is_5 (Plugins)
 pos_is5 = len(code_fi)
 code_fi[ph_is5 + 2 : ph_is5 + 4] = struct.pack('<h', (pos_is5 - ph_is5) // 2)
 code_fi.extend(b"\x60\x04\x78\x89") # sget v4, msg_plugins (field@8978)
 code_fi.extend(b"\x60\x03\x9b\x8b") # sget v3, Plugins (field@8b9b)
 
+# :add_button
 pos_add = len(code_fi)
 code_fi[ph_goto_add + 1] = (pos_add - ph_goto_add) // 2
 code_fi[ph_goto2 + 1] = (pos_add - ph_goto2) // 2
@@ -433,6 +465,7 @@ code_fi.extend(b"\xd8\x02\x02\x01")         # add-int/lit8 v2, v2, 1
 code_fi.extend(b"\x12\x77")                 # const/4 v7, 7
 code_fi.extend(b"\x34\x72" + struct.pack('<h', (pos_loop - len(code_fi)) // 2)) # if-lt v2, v7, :loop
 
+# :after_categories (Shared Shadow)
 pos_after_cat = len(code_fi)
 code_fi[ph_after_cat + 1] = (pos_after_cat - ph_after_cat) // 2
 
@@ -440,6 +473,7 @@ code_fi.extend(b"\x71\x00\xd8\xfa\x00\x00") # invoke-static {}, UItem.asShadow
 code_fi.extend(b"\x0c\x02")                 # move-result-object v2
 code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
 
+# Shared Links Header:
 code_fi.extend(b"\x60\x02\x2f\x8b")         # sget v2, R.string.Links
 code_fi.extend(b"\x71\x10\x80\xf5\x02\x00") # invoke-static {v2}, LocaleController.getString
 code_fi.extend(b"\x0c\x02")                 # move-result-object v2
@@ -447,6 +481,7 @@ code_fi.extend(b"\x71\x10\xd1\xfa\x02\x00") # invoke-static {v2}, UItem.asHeader
 code_fi.extend(b"\x0c\x02")                 # move-result-object v2
 code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
 
+# --- SHARED CHANNEL ITEM ---
 code_fi.extend(b"\x13\x02\x07\x00")         # const/16 v2, 7 (CHANNEL id)
 code_fi.extend(b"\x60\x04\x4b\x89")         # sget v4, msg_channel
 code_fi.extend(b"\x60\x03\xc4\x8b")         # sget v3, ProfileChannel
@@ -455,14 +490,17 @@ code_fi.extend(b"\x0c\x03")                 # move-result-object v3
 code_fi.extend(b"\x55\x15\xba\x8e")         # iget-boolean v5, v1, hasOwnBackground
 ph_sub_chan = len(code_fi)
 code_fi.extend(b"\x39\x05\x00\x00")         # if-nez v5, -> :sub_chan_text
+# Root channel text:
 code_fi.extend(b"\x1a\x05\xc0\xc0")         # const-string v5, 'lighthouse_top           '
 code_fi.extend(b"\x6e\x10\xed\xee\x05\x00") # invoke-virtual {v5}, String.trim
 code_fi.extend(b"\x0c\x05")                 # move-result-object v5
 ph_goto_add_chan = len(code_fi)
 code_fi.extend(b"\x28\x00")                 # goto -> :add_chan
+# :sub_chan_text
 pos_sub_chan = len(code_fi)
 code_fi[ph_sub_chan + 2 : ph_sub_chan + 4] = struct.pack('<h', (pos_sub_chan - ph_sub_chan) // 2)
 code_fi.extend(b"\x1a\x05\xf7\xa1")         # const-string v5, 'exteraGram'
+# :add_chan
 pos_add_chan = len(code_fi)
 code_fi[ph_goto_add_chan + 1] = (pos_add_chan - ph_goto_add_chan) // 2
 
@@ -470,14 +508,16 @@ code_fi.extend(b"\x71\x40\xc2\xfa\x42\x53") # invoke-static {v2, v4, v3, v5}, UI
 code_fi.extend(b"\x0c\x02")                 # move-result-object v2
 code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
 
+# If Root mode, jump straight to final shadow!
 code_fi.extend(b"\x55\x12\xba\x8e")         # iget-boolean v2, v1, hasOwnBackground
 ph_to_shadow = len(code_fi)
 code_fi.extend(b"\x38\x02\x00\x00")         # if-eqz v2, -> :final_shadow
 
+# --- SUBMENU REMAINING LINKS ---
 # Sub Link 2: Forum (@exteraForum) (id=8)
 code_fi.extend(b"\x13\x02\x08\x00")         # const/16 v2, 8
 code_fi.extend(b"\x60\x04\x60\x89")         # sget v4, msg_groups (field@8960)
-code_fi.extend(b"\x60\x03\xf7\x8b")         # sget v3, SearchAllChatsShort (field@8bf7) ("Чаты")
+code_fi.extend(b"\x60\x03\xf7\x8b")         # sget v3, SearchAllChatsShort (field@8bf7) ("Р§Р°С‚С‹")
 code_fi.extend(b"\x71\x10\x80\xf5\x03\x00") # invoke-static {v3}, LocaleController.getString
 code_fi.extend(b"\x0c\x03")                 # move-result-object v3
 code_fi.extend(b"\x1a\x05\xf6\xa1")         # const-string v5, 'exteraForum'
@@ -485,6 +525,29 @@ code_fi.extend(b"\x71\x40\xc2\xfa\x42\x53") # invoke-static {v2, v4, v3, v5}, UI
 code_fi.extend(b"\x0c\x02")                 # move-result-object v2
 code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
 
+# Sub Link 3: Crowdin (id=9)
+code_fi.extend(b"\x13\x02\x09\x00")         # const/16 v2, 9
+code_fi.extend(b"\x60\x04\x92\x89")         # sget v4, msg_translate
+code_fi.extend(b"\x60\x03\x71\x8a")         # sget v3, Crowdin
+code_fi.extend(b"\x71\x10\x80\xf5\x03\x00") # invoke-static {v3}, LocaleController.getString
+code_fi.extend(b"\x0c\x03")                 # move-result-object v3
+code_fi.extend(b"\x1a\x05\xa5\x1e")         # const-string v5, 'Crowdin'
+code_fi.extend(b"\x71\x40\xc2\xfa\x42\x53") # invoke-static {v2, v4, v3, v5}, UItem.asButton (method@fac2)
+code_fi.extend(b"\x0c\x02")                 # move-result-object v2
+code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
+
+# Sub Link 4: Website (id=10)
+code_fi.extend(b"\x13\x02\x0a\x00")         # const/16 v2, 10
+code_fi.extend(b"\x60\x04\x63\x89")         # sget v4, msg_language
+code_fi.extend(b"\x60\x03\x81\x8c")         # sget v3, Website
+code_fi.extend(b"\x71\x10\x80\xf5\x03\x00") # invoke-static {v3}, LocaleController.getString
+code_fi.extend(b"\x0c\x03")                 # move-result-object v3
+code_fi.extend(b"\x1a\x05\x00\xa2")         # const-string v5, 'exteragram.app'
+code_fi.extend(b"\x71\x40\xc2\xfa\x42\x53") # invoke-static {v2, v4, v3, v5}, UItem.asButton (method@fac2)
+code_fi.extend(b"\x0c\x02")                 # move-result-object v2
+code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
+
+# :final_shadow
 pos_final_shadow = len(code_fi)
 code_fi[ph_to_shadow + 2 : ph_to_shadow + 4] = struct.pack('<h', (pos_final_shadow - ph_to_shadow) // 2)
 
@@ -500,81 +563,7 @@ while len(code_fi) < 572:
 assert len(code_fi) == 572
 
 dex4[start_fi : start_fi + 572] = code_fi
-print("Patched MainPreferencesActivity.fillItems (Root NfGram hub with 'Общие настройки' + exteraGram) in classes4.dex")
-
-# -------------------------------------------------------------
-# 1.2 GeneralPreferencesActivity: First Setting = "Смена чёлки Nfgram"
-# -------------------------------------------------------------
-# In GeneralPreferencesActivity.fillItems: prepend Header + Button for Notch + Shadow
-patch_gp_fi = bytearray()
-# Header: NfGram (0x7f0f0000)
-patch_gp_fi.extend(b'\x15\x00\x0f\x7f')         # const/high16 v0, 0x7f0f
-patch_gp_fi.extend(b'\x71\x10\x80\xf5\x00\x00') # invoke-static {v0}, LocaleController.getString
-patch_gp_fi.extend(b'\x0c\x00')                 # move-result-object v0
-patch_gp_fi.extend(b'\x71\x10\xd1\xfa\x00\x00') # invoke-static {v0}, UItem.asHeader
-patch_gp_fi.extend(b'\x0c\x00')                 # move-result-object v0
-patch_gp_fi.extend(b'\x6e\x20\x55\xf0\x0e\x00') # invoke-virtual {v14, v0}, ArrayList.add
-
-# Button: ID 1, msg_media (0x7f080517), AppNameAlt (0x7f0f0001 = 'Смена чёлки Nfgram')
-patch_gp_fi.extend(b'\x12\x10')                 # const/4 v0, 1 (ID 1)
-patch_gp_fi.extend(b'\x14\x01\x17\x05\x08\x7f') # const v1, 0x7f080517 (msg_media)
-patch_gp_fi.extend(b'\x14\x02\x01\x00\x0f\x7f') # const v2, 0x7f0f0001 (AppNameAlt)
-patch_gp_fi.extend(b'\x71\x10\x80\xf5\x02\x00') # invoke-static {v2}, LocaleController.getString
-patch_gp_fi.extend(b'\x0c\x02')                 # move-result-object v2
-patch_gp_fi.extend(b'\x71\x30\xc1\xfa\x10\x02') # invoke-static {v0, v1, v2}, UItem.asButton
-patch_gp_fi.extend(b'\x0c\x00')                 # move-result-object v0
-patch_gp_fi.extend(b'\x14\x02\xff\xa8\x00\xff') # const v2, 0xff00a8ff (cyan squircle)
-patch_gp_fi.extend(b'\x6e\x30\xe6\xfa\x10\x02') # invoke-virtual {v0, v1, v2}, UItem.setColorfulIcon
-patch_gp_fi.extend(b'\x6e\x20\x55\xf0\x0e\x00') # invoke-virtual {v14, v0}, ArrayList.add
-
-# Shadow
-patch_gp_fi.extend(b'\x71\x00\xd8\xfa\x00\x00') # invoke-static {}, UItem.asShadow
-patch_gp_fi.extend(b'\x0c\x00')                 # move-result-object v0
-patch_gp_fi.extend(b'\x6e\x20\x55\xf0\x0e\x00') # invoke-virtual {v14, v0}, ArrayList.add
-
-assert len(patch_gp_fi) <= 88
-while len(patch_gp_fi) < 88:
-    patch_gp_fi.extend(b'\x00\x00')
-dex4[0x3893cc : 0x3893cc + 88] = patch_gp_fi
-print("Prepend 'Смена чёлки Nfgram' setting to top of GeneralPreferencesActivity in classes4.dex")
-
-# In GeneralPreferencesActivity.handleChatTranslateClick (method@74ae at 0x3899a8, 138 bytes):
-# Implement instant title style cycling + NotificationCenter post + Bulletin toast
-patch_notch = bytearray()
-# Cycle titleText: (titleText + 1) % 4
-patch_notch.extend(b'\x71\x00\x84\x4f\x00\x00') # invoke-static {}, ExteraConfig.getTitleText:()I
-patch_notch.extend(b'\x0a\x00')                 # move-result v0
-patch_notch.extend(b'\xd8\x00\x00\x01')         # add-int/lit8 v0, v0, 1
-patch_notch.extend(b'\xdf\x00\x00\x04')         # rem-int/lit8 v0, v0, 4
-patch_notch.extend(b'\x71\x10\x06\x50\x00\x00') # invoke-static {v0}, ExteraConfig.setTitleText:(I)V
-
-# Post currentUserPremiumStatusChanged notification:
-patch_notch.extend(b'\x6e\x10\xf4\xf7\x04\x00') # invoke-virtual {v4}, BaseFragment.getNotificationCenter
-patch_notch.extend(b'\x0c\x00')                 # move-result-object v0
-patch_notch.extend(b'\x60\x01\xdb\x88')         # sget v1, NotificationCenter.currentUserPremiumStatusChanged
-patch_notch.extend(b'\x12\x02')                 # const/4 v2, 0
-patch_notch.extend(b'\x23\x22\x70\x3d')         # new-array v2, v2, [Object
-patch_notch.extend(b'\x6e\x30\x12\xf6\x10\x02') # invoke-virtual {v0, v1, v2}, NotificationCenter.postNotificationName
-
-# Show Bulletin:
-patch_notch.extend(b'\x71\x10\x8c\xf9\x04\x00') # invoke-static {v4}, BulletinFactory.of
-patch_notch.extend(b'\x0c\x05')                 # move-result-object v5
-patch_notch.extend(b'\x60\x00\x4b\x89')         # sget v0, msg_channel (raw icon)
-patch_notch.extend(b'\x14\x01\x01\x00\x0f\x7f') # const v1, 0x7f0f0001 (AppNameAlt)
-patch_notch.extend(b'\x71\x10\x80\xf5\x01\x00') # invoke-static {v1}, LocaleController.getString
-patch_notch.extend(b'\x0c\x01')                 # move-result-object v1
-patch_notch.extend(b'\x12\x02')                 # const/4 v2, 0 (null subtitle)
-patch_notch.extend(b'\x12\x03')                 # const/4 v3, 0 (null runnable)
-patch_notch.extend(b'\x6e\x53\x85\xf9\x05\x21') # invoke-virtual {v5, v0, v1, v2, v3}, BulletinFactory.createSimpleBulletin
-patch_notch.extend(b'\x0c\x04')                 # move-result-object v4
-patch_notch.extend(b'\x6e\x10\x78\xf9\x04\x00') # invoke-virtual {v4}, Bulletin.show
-patch_notch.extend(b'\x0e\x00')                 # return-void
-
-assert len(patch_notch) <= 138
-while len(patch_notch) < 138:
-    patch_notch.extend(b'\x00\x00')
-dex4[0x3899a8 : 0x3899a8 + 138] = patch_notch
-print("Patched Notch style switch handler with instant DialogsActivity update in classes4.dex")
+print("Patched MainPreferencesActivity.fillItems (Root NfGram hub + 100% complete Photo 3 exteraGram) in classes4.dex")
 
 dex4[12:32] = hashlib.sha1(dex4[32:]).digest()
 dex4[8:12] = struct.pack("<I", zlib.adler32(dex4[12:]) & 0xFFFFFFFF)
@@ -648,12 +637,12 @@ manifest_count = manifest.count(old_pkg_u16)
 assert manifest_count == 12
 manifest = manifest.replace(old_pkg_u16, new_pkg_u16)
 
-# Bump versionCode from 71129 to 71145
+# Bump versionCode from 71129 to 71147
 old_vc = struct.pack("<I", 71129)
-new_vc = struct.pack("<I", 71145)
+new_vc = struct.pack("<I", 71147)
 assert manifest.count(old_vc) == 1
 manifest = manifest.replace(old_vc, new_vc)
-print("Bumped versionCode to 71145 in AndroidManifest.xml")
+print("Bumped versionCode to 71147 in AndroidManifest.xml")
 
 print("=== STEP 3: Patch resources.arsc ===")
 arsc_pkg_count = arsc.count(old_pkg_u16)

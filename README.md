@@ -20,7 +20,7 @@
 
 **NfGram** is a feature-rich, high-performance open-source client fork built on the foundation of **AyuGram** and **Telegram for Android**, incorporating custom modifications, visual aesthetics from **exteraGram**, and cutting-edge client enhancements.
 
-NfGram bridges the gap between maximum messaging speed, uncompromising privacy, and seamless modern Android integration. It introduces multi-threaded parallel uploads, aggressive zero-overhead battery optimizations, General Settings with header personalization, an authentic exteraGram settings hub, and an error-resilient Python plugin runtime powered by Chaquopy.
+NfGram bridges the gap between maximum messaging speed, uncompromising privacy, and seamless modern Android integration. It introduces multi-threaded parallel uploads, aggressive zero-overhead battery optimizations, an authentic exteraGram settings hub, and an error-resilient Python plugin runtime powered by Chaquopy.
 
 ---
 
@@ -30,7 +30,7 @@ NfGram bridges the gap between maximum messaging speed, uncompromising privacy, 
 > **NfGram is an independent open-source fork of [AyuGram](https://github.com/AyuGram/AyuGramAndroid) and [Telegram for Android](https://github.com/DrKLO/Telegram), incorporating visual and functional components from [exteraGram](https://github.com/exteraSquad/exteraGram).**
 > - This project is distributed under the terms of the **GNU General Public License v3.0 (GNU GPLv3)**.
 > - NfGram is **not** an official release of Telegram FZ-LLC, the AyuGram development team, or exteraSquad.
-> - Modifications, parallel uploads, General Settings, battery optimizations, and custom enhancements are developed and maintained by **NothingFlare**.
+> - Modifications, parallel uploads, battery optimizations, Python plugin runtime fixes, and custom enhancements are developed and maintained by **NothingFlare**.
 > - Inquiries, bug reports, and pull requests relating to this fork should be submitted directly to this repository.
 
 ---
@@ -41,10 +41,10 @@ NfGram bridges the gap between maximum messaging speed, uncompromising privacy, 
   - Replaces serial upload bottlenecks with a dynamic multi-threaded work pool.
   - Media files, documents, and large chunks stream concurrently across CPU cores, saturating modern high-bandwidth connections without UI freezes or frame drops.
 
-- **General Settings & Header Personalization ("Чёлка Nfgram")**
-  - Direct header style customization right from the new General Settings category.
-  - Instant real-time switching between NfGram, username, first name, and chat filter titles.
-  - Option to hide/show action bar status badge.
+- **Error-Resilient Python Plugin Runtime (Chaquopy Engine)**
+  - Enhanced plugin lifecycle management preventing disappearance upon toggling master switch.
+  - Cython dynamic import path caching ensuring seamless hot-reloading of custom plugins.
+  - Safe-mode recovery and strict Dalvik/ART bytecode verification compatibility.
 
 - **Aggressive Battery & Resource Optimizations**
   - **Sensors & Polling**: Neutralized background orientation/ambient sensor polling when unnecessary, eliminating battery drain in idle states.
@@ -157,7 +157,7 @@ For full license terms and conditions, refer to the [LICENSE](LICENSE) file.
 
 **NfGram** — это модифицированный клиент с открытым исходным кодом, созданный на базе **AyuGram** и официального клиента **Telegram для Android**, объединяющий передовые наработки **exteraGram** и авторские улучшения производительности.
 
-Проект создан для пользователей, которым необходима бескомпромиссная скорость работы, надёжная защита приватности, категория «Общие настройки» со сменой чёлки Nfgram и гибкая кастомизация с поддержкой расширений на Python.
+Проект создан для пользователей, которым необходима бескомпромиссная скорость работы, надёжная защита приватности и гибкая кастомизация с поддержкой расширений на Python.
 
 ---
 
@@ -167,7 +167,7 @@ For full license terms and conditions, refer to the [LICENSE](LICENSE) file.
 > **NfGram является независимым форком проектов [AyuGram](https://github.com/AyuGram/AyuGramAndroid) и [Telegram для Android](https://github.com/DrKLO/Telegram) с включением элементов из [exteraGram](https://github.com/exteraSquad/exteraGram).**
 > - Проект распространяется на условиях лицензии **GNU General Public License v3.0 (GNU GPLv3)**.
 > - NfGram **не** является официальным продуктом Telegram FZ-LLC, команды разработчиков AyuGram или exteraSquad.
-> - Модификации, Общие настройки («Чёлка Nfgram»), многопоточная загрузка, оптимизация энергопотребления и доработки движка разработаны и поддерживаются разработчиком **NothingFlare**.
+> - Модификации, многопоточная загрузка, оптимизация энергопотребления и доработки движка разработаны и поддерживаются разработчиком **NothingFlare**.
 > - Все вопросы, сообщения об ошибках и предложения направляются непосредственно в данный репозиторий.
 
 ---
@@ -178,10 +178,10 @@ For full license terms and conditions, refer to the [LICENSE](LICENSE) file.
   - Устранено узкое горлышко однопоточной очереди при передаче файлов.
   - Потоки отправки данных распределяются по ядрам процессора, позволяя полностью утилизировать современные высокоскоростные каналы связи без зависаний интерфейса.
 
-- **Общие настройки и персонализация шапки («Чёлка Nfgram»)**
-  - Удобная настройка внешнего вида верхней панели прямо из категории «Общие настройки».
-  - Мгновенное переключение стилей: NfGram (по умолчанию), имя пользователя, имя, чаты и скрытие статуса.
-  - Полноценная поддержка переключения плагинов без их исчезновения.
+- **Стабильный движок плагинов Python (Chaquopy Engine)**
+  - Устранена проблема исчезновения плагинов при отключении и последующем включении главного переключателя.
+  - Автоматическое кэширование путей импорта Cython для надёжной горячей перезагрузки модулей.
+  - Устранены ошибки верификации Dalvik/ART при инициализации базовых классов плагинов.
 
 - **Глубокая оптимизация энергопотребления и батареи**
   - **Датчики и сенсоры**: Отключен фоновый поллинг гироскопа и ориентации при отсутствии необходимости, предотвращая фоновый разряд аккумулятора.
