@@ -54,6 +54,7 @@ NfGram bridges the gap between maximum messaging speed, uncompromising privacy, 
   - Enhanced plugin lifecycle management preventing disappearance upon toggling master switch.
   - Cython dynamic import path caching ensuring seamless hot-reloading of custom plugins.
   - Safe-mode recovery and strict Dalvik/ART bytecode verification compatibility.
+  - Eliminated rogue recursive retry loop on failed plugin load that flooded background queues and triggered kernel OOM/LMK silent kills (`died: cch+5 CEM`).
 
 - **Aggressive Battery & Resource Optimizations**
   - **Sensors & Polling**: Neutralized background orientation/ambient sensor polling when unnecessary, eliminating battery drain in idle states.
@@ -200,6 +201,7 @@ For full license terms and conditions, refer to the [LICENSE](LICENSE) file.
   - Устранена проблема исчезновения плагинов при отключении и последующем включении главного переключателя.
   - Автоматическое кэширование путей импорта Cython для надёжной горячей перезагрузки модулей.
   - Устранены ошибки верификации Dalvik/ART при инициализации базовых классов плагинов.
+  - Полностью ликвидирован скрытый бесконечный цикл повторов при ошибке инициализации плагинов, который вызывал перегрев процессора и внезапное бесшумное закрытие приложения ядром системы (Low Memory Killer / CEM).
 
 - **Глубокая оптимизация энергопотребления и батареи**
   - **Датчики и сенсоры**: Отключен фоновый поллинг гироскопа и ориентации при отсутствии необходимости, предотвращая фоновый разряд аккумулятора.

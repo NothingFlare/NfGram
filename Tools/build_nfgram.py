@@ -146,30 +146,6 @@ assert dex1[0x3d9ff4 : 0x3d9ff8] == bytes.fromhex("1a 00 f5 d0".replace(" ", "")
 dex1[0x3d9ff4 : 0x3d9ff8] = bytes.fromhex("12 00 11 00".replace(" ", ""))
 print("Applied Plugin Patch 2: findModuleNameOwner returns null (prevents false collisions)")
 
-# 3. PythonPluginsEngine.init -> do not exit early if initSdk returns 0 (false)
-assert dex1[0x3dc180 : 0x3dc184] == bytes.fromhex("39 00 09 00".replace(" ", ""))
-dex1[0x3dc180 : 0x3dc184] = bytes.fromhex("28 09 00 00".replace(" ", ""))
-print("Applied Plugin Patch 3: PythonPluginsEngine.init unconditionally proceeds to loadPlugins")
-
-# 4. PythonPluginsEngine.init catch block -> preserve 'this' (v5) and call loadPlugins(callback)
-assert dex1[0x3dc18c : 0x3dc18e] == bytes.fromhex("0d 05".replace(" ", ""))
-dex1[0x3dc18c : 0x3dc18e] = bytes.fromhex("0d 01".replace(" ", "")) # move-exception v1 instead of clobbering v5
-
-assert dex1[0x3dc2dc : 0x3dc2e2] == bytes.fromhex("71 20 d6 b0 50 00".replace(" ", ""))
-dex1[0x3dc2dc : 0x3dc2e2] = bytes.fromhex("71 20 d6 b0 10 00".replace(" ", "")) # FileLog.e(v0, v1)
-
-assert dex1[0x3dc2e2 : 0x3dc2ea] == bytes.fromhex("72 10 e2 74 06 00 0e 00".replace(" ", ""))
-dex1[0x3dc2e2 : 0x3dc2ea] = bytes.fromhex("6e 20 6c 37 65 00 0e 00".replace(" ", "")) # loadPlugins(callback); return-void
-print("Applied Plugin Patch 4: PythonPluginsEngine.init catch block calls loadPlugins (plugins NEVER disappear)")
-
-# 5. requireBasePluginClass -> remove safe mode and sdkInitialized throws
-assert dex1[0x3d927e : 0x3d9282] == bytes.fromhex("39 00 48 00".replace(" ", ""))
-dex1[0x3d927e : 0x3d9282] = bytes.fromhex("00 00 00 00".replace(" ", "")) # nop nop (bypass safe mode check)
-
-assert dex1[0x3d9286 : 0x3d928a] == bytes.fromhex("38 00 3c 00".replace(" ", ""))
-dex1[0x3d9286 : 0x3d928a] = bytes.fromhex("00 00 00 00".replace(" ", "")) # nop nop (bypass sdkInitialized check)
-print("Applied Plugin Patch 5: requireBasePluginClass bypasses safe mode and allows enabling")
-
 # 6. PythonPluginsEngine.refreshImportCaches() -> Always append plugin parent directory to Python's sys.path
 old_refresh = bytes.fromhex("1b 03 2b 34 01 00 6e 20 91 2e 31 00 0c 03 1f 03 5b 09 38 05 13 00 38 03 11 00 1b 01 8d 36 01 00 6e 10 4b 73 05 00 0c 05 12 02 24 20 86 3a 25 00 0c 05 6e 30 8e 2e 13 05".replace(" ", ""))
 new_refresh = bytes.fromhex("1b 03 1f 34 01 00 6e 20 91 2e 31 00 0c 03 1f 03 5b 09 38 05 13 00 38 03 11 00 1b 01 48 d1 00 00 6e 10 4b 73 05 00 0c 05 24 10 86 3a 05 00 0c 05 00 00 6e 30 8e 2e 13 05".replace(" ", ""))
@@ -658,12 +634,12 @@ manifest_count = manifest.count(old_pkg_u16)
 assert manifest_count == 12
 manifest = manifest.replace(old_pkg_u16, new_pkg_u16)
 
-# Bump versionCode from 71129 to 71149
+# Bump versionCode from 71129 to 71151
 old_vc = struct.pack("<I", 71129)
-new_vc = struct.pack("<I", 71149)
+new_vc = struct.pack("<I", 71151)
 assert manifest.count(old_vc) == 1
 manifest = manifest.replace(old_vc, new_vc)
-print("Bumped versionCode to 71149 in AndroidManifest.xml")
+print("Bumped versionCode to 71151 in AndroidManifest.xml")
 
 print("=== STEP 3: Patch resources.arsc ===")
 arsc_pkg_count = arsc.count(old_pkg_u16)
