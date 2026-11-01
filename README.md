@@ -2,7 +2,7 @@
 
 # NfGram
 
-**An advanced, high-performance Telegram client fork with enhanced privacy, biometric face unlock, battery optimizations, authentic exteraGram personalization, and a powerful Python plugin engine.**
+**An advanced, high-performance Telegram client fork with enhanced privacy, battery optimizations, authentic exteraGram personalization, and a powerful Python plugin engine.**
 
 [![Telegram Version](https://img.shields.io/badge/Telegram-12.10.6-2b2b2b.svg?style=flat-square)](https://telegram.org)
 [![Android Version](https://img.shields.io/badge/Android-8.0+--15+-2b2b2b.svg?style=flat-square)](https://www.android.com)
@@ -20,7 +20,7 @@
 
 **NfGram** is a feature-rich, high-performance open-source client fork built on the foundation of **AyuGram** and **Telegram for Android**, incorporating custom modifications, visual aesthetics from **exteraGram**, and cutting-edge client enhancements.
 
-NfGram bridges the gap between maximum messaging speed, uncompromising privacy, and seamless modern Android integration. It introduces multi-threaded parallel uploads, biometric Face Unlock authentication with hardware fallback, aggressive zero-overhead battery optimizations, an authentic exteraGram settings hub, and an error-resilient Python plugin runtime powered by Chaquopy.
+NfGram bridges the gap between maximum messaging speed, uncompromising privacy, and seamless modern Android integration. It introduces multi-threaded parallel uploads, aggressive zero-overhead battery optimizations, General Settings with header personalization, an authentic exteraGram settings hub, and an error-resilient Python plugin runtime powered by Chaquopy.
 
 ---
 
@@ -30,7 +30,7 @@ NfGram bridges the gap between maximum messaging speed, uncompromising privacy, 
 > **NfGram is an independent open-source fork of [AyuGram](https://github.com/AyuGram/AyuGramAndroid) and [Telegram for Android](https://github.com/DrKLO/Telegram), incorporating visual and functional components from [exteraGram](https://github.com/exteraSquad/exteraGram).**
 > - This project is distributed under the terms of the **GNU General Public License v3.0 (GNU GPLv3)**.
 > - NfGram is **not** an official release of Telegram FZ-LLC, the AyuGram development team, or exteraSquad.
-> - Modifications, biometric face unlock integrations, parallel uploads, battery optimizations, and custom enhancements are developed and maintained by **NothingFlare**.
+> - Modifications, parallel uploads, General Settings, battery optimizations, and custom enhancements are developed and maintained by **NothingFlare**.
 > - Inquiries, bug reports, and pull requests relating to this fork should be submitted directly to this repository.
 
 ---
@@ -41,10 +41,10 @@ NfGram bridges the gap between maximum messaging speed, uncompromising privacy, 
   - Replaces serial upload bottlenecks with a dynamic multi-threaded work pool.
   - Media files, documents, and large chunks stream concurrently across CPU cores, saturating modern high-bandwidth connections without UI freezes or frame drops.
 
-- **Biometric Face Unlock & Passcode Integration**
-  - Native integration with AndroidX `BiometricPrompt` supporting Class 3 (Strong) and Class 2 biometric sensors.
-  - Supports face recognition unlock alongside fingerprint and device credentials.
-  - Seamless fallback between device PIN/password and biometric prompt, ensuring instant access without compromising chat protection.
+- **General Settings & Header Personalization ("Чёлка Nfgram")**
+  - Direct header style customization right from the new General Settings category.
+  - Instant real-time switching between NfGram, username, first name, and chat filter titles.
+  - Option to hide/show action bar status badge.
 
 - **Aggressive Battery & Resource Optimizations**
   - **Sensors & Polling**: Neutralized background orientation/ambient sensor polling when unnecessary, eliminating battery drain in idle states.
@@ -77,7 +77,7 @@ NfGram bridges the gap between maximum messaging speed, uncompromising privacy, 
 | :--- | :--- | :--- |
 | **Android OS** | Android 8.0 (API 26) – Android 15+ (API 35+) | Full support for modern Android runtimes, ART JIT, and dynamic permission models |
 | **Architectures** | `arm64-v8a`, `armeabi-v7a` | Native binaries optimized with NEON vectorization |
-| **Biometrics** | Fingerprint, Face Recognition, Device PIN | Class 2/3 BiometricPrompt with cryptographic keystore integration |
+| **Security** | Passcode, Biometric Fingerprint, Device PIN | Cryptographic KeyStore & hardware keystore |
 | **Python Engine**| Python 3.8 – 3.11 (Chaquopy) | Sandboxed plugin runtime with isolated module import caches |
 
 ---
@@ -100,7 +100,7 @@ cd NfGram
 ### 2. Standalone Release Build & Sign Pipeline
 To produce a fully patched, zipaligned, and signed universal APK using the integrated tooling:
 ```bash
-python Tools/build_nfgram_faceunlock.py
+python Tools/build_nfgram.py
 ```
 The resulting signed universal APK will be created at:
 ```text
@@ -139,7 +139,7 @@ For full license terms and conditions, refer to the [LICENSE](LICENSE) file.
 
 # NfGram
 
-**Продвинутый высокопроизводительный форк Telegram с усиленной приватностью, биометрическим Face Unlock, оптимизацией батареи, аутентичным меню exteraGram и встроенным движком Python-плагинов.**
+**Продвинутый высокопроизводительный форк Telegram с усиленной приватностью, оптимизацией батареи, аутентичным меню exteraGram и встроенным движком Python-плагинов.**
 
 [![Версия Telegram](https://img.shields.io/badge/Telegram-12.10.6-2b2b2b.svg?style=flat-square)](https://telegram.org)
 [![Версия Android](https://img.shields.io/badge/Android-8.0+--15+-2b2b2b.svg?style=flat-square)](https://www.android.com)
@@ -157,7 +157,7 @@ For full license terms and conditions, refer to the [LICENSE](LICENSE) file.
 
 **NfGram** — это модифицированный клиент с открытым исходным кодом, созданный на базе **AyuGram** и официального клиента **Telegram для Android**, объединяющий передовые наработки **exteraGram** и авторские улучшения производительности.
 
-Проект создан для пользователей, которым необходима бескомпромиссная скорость работы, надёжная защита приватности, удобная авторизация через Face Unlock и гибкая кастомизация с поддержкой расширений на Python.
+Проект создан для пользователей, которым необходима бескомпромиссная скорость работы, надёжная защита приватности, категория «Общие настройки» со сменой чёлки Nfgram и гибкая кастомизация с поддержкой расширений на Python.
 
 ---
 
@@ -167,7 +167,7 @@ For full license terms and conditions, refer to the [LICENSE](LICENSE) file.
 > **NfGram является независимым форком проектов [AyuGram](https://github.com/AyuGram/AyuGramAndroid) и [Telegram для Android](https://github.com/DrKLO/Telegram) с включением элементов из [exteraGram](https://github.com/exteraSquad/exteraGram).**
 > - Проект распространяется на условиях лицензии **GNU General Public License v3.0 (GNU GPLv3)**.
 > - NfGram **не** является официальным продуктом Telegram FZ-LLC, команды разработчиков AyuGram или exteraSquad.
-> - Модификации, биометрический Face Unlock, многопоточная загрузка, оптимизация энергопотребления и доработки движка разработаны и поддерживаются разработчиком **NothingFlare**.
+> - Модификации, Общие настройки («Чёлка Nfgram»), многопоточная загрузка, оптимизация энергопотребления и доработки движка разработаны и поддерживаются разработчиком **NothingFlare**.
 > - Все вопросы, сообщения об ошибках и предложения направляются непосредственно в данный репозиторий.
 
 ---
@@ -178,9 +178,10 @@ For full license terms and conditions, refer to the [LICENSE](LICENSE) file.
   - Устранено узкое горлышко однопоточной очереди при передаче файлов.
   - Потоки отправки данных распределяются по ядрам процессора, позволяя полностью утилизировать современные высокоскоростные каналы связи без зависаний интерфейса.
 
-- **Биометрический Face Unlock и интеграция с кодом-паролем**
-  - Поддержка разблокировки по лицу через системный `BiometricPrompt` (Class 2 / Class 3).
-  - Удобный и безопасный переход между разблокировкой по лицу, сканером отпечатка пальца и запасным PIN-кодом устройства.
+- **Общие настройки и персонализация шапки («Чёлка Nfgram»)**
+  - Удобная настройка внешнего вида верхней панели прямо из категории «Общие настройки».
+  - Мгновенное переключение стилей: NfGram (по умолчанию), имя пользователя, имя, чаты и скрытие статуса.
+  - Полноценная поддержка переключения плагинов без их исчезновения.
 
 - **Глубокая оптимизация энергопотребления и батареи**
   - **Датчики и сенсоры**: Отключен фоновый поллинг гироскопа и ориентации при отсутствии необходимости, предотвращая фоновый разряд аккумулятора.
@@ -213,7 +214,7 @@ For full license terms and conditions, refer to the [LICENSE](LICENSE) file.
 | :--- | :--- | :--- |
 | **Android OS** | Android 8.0 (API 26) – Android 15+ (API 35+) | Полная поддержка современного рантайма ART JIT и динамических разрешений |
 | **Архитектуры** | `arm64-v8a`, `armeabi-v7a` | Оптимизированные нативные библиотеки с поддержкой NEON |
-| **Биометрия** | Сканер отпечатка, Face Unlock, PIN-код | BiometricPrompt Class 2/3 с аппаратным хранилищем ключей |
+| **Безопасность** | Код-пароль, отпечаток пальца, PIN устройства | Защищённое хранилище Android KeyStore |
 | **Python** | Python 3.8 – 3.11 (Chaquopy) | Изолированная среда выполнения плагинов с кэшированием импортов |
 
 ---
@@ -236,7 +237,7 @@ cd NfGram
 ### 2. Сборка готового подписанного универсального APK
 Для сборки через автоматизированный пайплайн с выравниванием (zipalign) и подписью:
 ```bash
-python Tools/build_nfgram_faceunlock.py
+python Tools/build_nfgram.py
 ```
 Собранный и подписанный файл появится в корне и на рабочем столе:
 ```text

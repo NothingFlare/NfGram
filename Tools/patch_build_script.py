@@ -6,6 +6,14 @@
  */
 """
 
+"""
+/*
+ * Copyright (C) 2026 NothingFlare 
+ *
+ * Licensed under GNU GPLv3.
+ */
+"""
+
 with open(r'c:\project\ayugram\Tools\build_nfgram_faceunlock.py', 'rb') as f:
     content = f.read()
 

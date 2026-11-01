@@ -1,6 +1,5 @@
 /*
  * Copyright (C) Nikolai Kudashov
- * Copyright (C) 2026 NothingFlare (Modifications)
  *
  * Licensed under GNU GPLv3.
  */

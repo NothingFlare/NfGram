@@ -6,6 +6,14 @@
  */
 """
 
+"""
+/*
+ * Copyright (C) 2026 NothingFlare 
+ *
+ * Licensed under GNU GPLv3.
+ */
+"""
+
 import zipfile, struct
 
 with zipfile.ZipFile('nfgram_faceunlock_aligned.apk', 'r') as z: dex = z.read('classes.dex')

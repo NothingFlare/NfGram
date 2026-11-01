@@ -6,6 +6,14 @@
  */
 """
 
+"""
+/*
+ * Copyright (C) 2026 NothingFlare 
+ *
+ * Licensed under GNU GPLv3.
+ */
+"""
+
 import zipfile
 import zlib
 import hashlib

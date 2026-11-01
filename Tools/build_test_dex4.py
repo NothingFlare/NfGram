@@ -6,6 +6,14 @@
  */
 """
 
+"""
+/*
+ * Copyright (C) 2026 NothingFlare 
+ *
+ * Licensed under GNU GPLv3.
+ */
+"""
+
 # -*- coding: utf-8 -*-
 import struct, subprocess, hashlib, zlib
 

@@ -6,6 +6,14 @@
  */
 """
 
+"""
+/*
+ * Copyright (C) 2026 NothingFlare 
+ *
+ * Licensed under GNU GPLv3.
+ */
+"""
+
 import os
 
 script_path = r"C:\project\ayugram\Tools\build_nfgram_faceunlock.py"

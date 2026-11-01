@@ -6,6 +6,14 @@
  */
 """
 
+"""
+/*
+ * Copyright (C) 2026 NothingFlare 
+ *
+ * Licensed under GNU GPLv3.
+ */
+"""
+
 import zipfile, struct
 
 APK = r"C:\project\ayugram\Tools\nfgram_fixed_aligned.apk"
