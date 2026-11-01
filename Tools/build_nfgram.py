@@ -141,10 +141,40 @@ assert dex1[0x1e6850 : 0x1e6856] == bytes.fromhex("72 30 4c 02 21 03".replace(" 
 dex1[0x1e6850 : 0x1e6856] = bytes.fromhex("72 30 4c 02 21 06".replace(" ", ""))
 print("Applied Plugin Patch 1: ExteraConfig.loadConfig() defaults pluginsEngine preference to true")
 
+# 1b. ExteraConfig.loadConfig() -> bypass auto-killswitch resetting pluginsEngine to false
+assert dex1[0x1e67de : 0x1e67e2] == bytes.fromhex("39 01 34 00".replace(" ", ""))
+dex1[0x1e67de : 0x1e67e2] = bytes.fromhex("28 34 00 00".replace(" ", ""))
+print("Applied Plugin Patch 1b: ExteraConfig.loadConfig() bypasses killswitch (preserves plugins on toggle/restart)")
+
 # 2. findModuleNameOwner -> return null immediately (avoids false module collision with sys.modules)
 assert dex1[0x3d9ff4 : 0x3d9ff8] == bytes.fromhex("1a 00 f5 d0".replace(" ", ""))
 dex1[0x3d9ff4 : 0x3d9ff8] = bytes.fromhex("12 00 11 00".replace(" ", ""))
 print("Applied Plugin Patch 2: findModuleNameOwner returns null (prevents false collisions)")
+
+# 3. PythonPluginsEngine.initSdk() -> Ensure getPython() is called before checking this.python
+assert dex1[0x3d8be6 : 0x3d8bf0] == bytes.fromhex("54 f2 1c 10 39 02 03 00 0f 01".replace(" ", ""))
+dex1[0x3d8be6 : 0x3d8bf0] = bytes.fromhex("70 10 5e 37 0f 00 54 f2 1c 10".replace(" ", ""))
+print("Applied Plugin Patch 3: PythonPluginsEngine.initSdk ensures getPython() initializes interpreter")
+
+# 4. PythonPluginsEngine.initSdk() -> Force sdkInitialized = true
+assert dex1[0x3d8f24 : 0x3d8f26] == bytes.fromhex("01 13".replace(" ", ""))
+dex1[0x3d8f24 : 0x3d8f26] = bytes.fromhex("12 13".replace(" ", ""))
+print("Applied Plugin Patch 4: PythonPluginsEngine.initSdk guarantees sdkInitialized = true")
+
+# 5. PythonPluginsEngine.initSdk() -> Do not skip requireBasePluginClass in safe mode
+assert dex1[0x3d8fb4 : 0x3d8fb8] == bytes.fromhex("39 00 0d 00".replace(" ", ""))
+dex1[0x3d8fb4 : 0x3d8fb8] = bytes.fromhex("00 00 00 00".replace(" ", ""))
+print("Applied Plugin Patch 5: PythonPluginsEngine.initSdk completes initialization in safe mode")
+
+# 5b. PythonPluginsEngine.requireBasePluginClass() -> Allow enabling plugins in safe mode
+assert dex1[0x3d927e : 0x3d9282] == bytes.fromhex("39 00 48 00".replace(" ", ""))
+dex1[0x3d927e : 0x3d9282] = bytes.fromhex("00 00 00 00".replace(" ", ""))
+print("Applied Plugin Patch 5b: PythonPluginsEngine.requireBasePluginClass permits enabling plugins in safe mode")
+
+# 5c. PythonPluginsEngine.requireBasePluginClass() -> Lazy bootstrap SDK on demand instead of throwing Exception
+assert dex1[0x3d92fe : 0x3d930e] == bytes.fromhex("22 00 27 19 1a 01 5f a2 70 20 57 74 10 00 27 00".replace(" ", ""))
+dex1[0x3d92fe : 0x3d930e] = bytes.fromhex("70 10 61 37 03 00 28 c3 00 00 00 00 00 00 00 00".replace(" ", ""))
+print("Applied Plugin Patch 5c: PythonPluginsEngine.requireBasePluginClass lazily initializes SDK on demand")
 
 # 6. PythonPluginsEngine.refreshImportCaches() -> Always append plugin parent directory to Python's sys.path
 old_refresh = bytes.fromhex("1b 03 2b 34 01 00 6e 20 91 2e 31 00 0c 03 1f 03 5b 09 38 05 13 00 38 03 11 00 1b 01 8d 36 01 00 6e 10 4b 73 05 00 0c 05 12 02 24 20 86 3a 25 00 0c 05 6e 30 8e 2e 13 05".replace(" ", ""))
@@ -634,12 +664,12 @@ manifest_count = manifest.count(old_pkg_u16)
 assert manifest_count == 12
 manifest = manifest.replace(old_pkg_u16, new_pkg_u16)
 
-# Bump versionCode from 71129 to 71151
+# Bump versionCode from 71129 to 71155
 old_vc = struct.pack("<I", 71129)
-new_vc = struct.pack("<I", 71151)
+new_vc = struct.pack("<I", 71155)
 assert manifest.count(old_vc) == 1
 manifest = manifest.replace(old_vc, new_vc)
-print("Bumped versionCode to 71151 in AndroidManifest.xml")
+print("Bumped versionCode to 71155 in AndroidManifest.xml")
 
 print("=== STEP 3: Patch resources.arsc ===")
 arsc_pkg_count = arsc.count(old_pkg_u16)
