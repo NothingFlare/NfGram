@@ -108,10 +108,10 @@ assert dex1[0x3345c6 : 0x3345cc] == bytes.fromhex("0a 02 6a 02 46 80".replace(" 
 dex1[0x3345c6 : 0x3345cc] = bytes.fromhex("12 02 6a 02 46 80".replace(" ", ""))
 print("Applied Battery patch 3: useNewBlur disabled")
 
-# Battery Patch 4: Disable persistent background WakeLock service (AyuConfig.keepAliveService = false)
+# Battery Patch 4: Background Service & Push Connection
+# Keep AyuConfig.keepAliveService enabled so NotificationsService runs as a foreground service
 assert dex1[0x24a674 : 0x24a67e] == bytes.fromhex("71 00 da 71 00 00 0a 03 b7 43".replace(" ", ""))
-dex1[0x24a674 : 0x24a67e] = bytes.fromhex("12 03 00 00 00 00 00 00 00 00".replace(" ", ""))
-print("Applied Battery patch 4: keepAliveService default set to false")
+print("Preserved keepAliveService: NotificationsService will maintain persistent background push socket")
 
 # Battery Patch 5: Disable chat GPU background blur pass (SharedConfig.canBlurChat = false, chatBlurEnabled = false)
 assert dex1[0x333b30 : 0x333b34] == bytes.fromhex("12 10 0f 00".replace(" ", ""))
@@ -121,15 +121,27 @@ assert dex1[0x333b44 : 0x333b4a] == bytes.fromhex("71 00 48 d4 00 00".replace(" 
 dex1[0x333b44 : 0x333b4a] = bytes.fromhex("12 00 0f 00 00 00".replace(" ", ""))
 print("Applied Battery patch 5: canBlurChat and chatBlurEnabled disabled (stops GPU shader overhead)")
 
-# Battery Patch 6: Convert startPushService AlarmManager from RTC_WAKEUP (60s) to RTC non-wakeup (15m)
+# Battery Patch 6: startPushService AlarmManager RTC_WAKEUP 60s
+# Retain periodic RTC_WAKEUP ping to prevent VPN / mobile carrier timeout when app is in background
 assert dex1[0x28f174 : 0x28f17c] == bytes.fromhex("12 07 17 0a 60 ea 00 00".replace(" ", ""))
-dex1[0x28f174 : 0x28f17c] = bytes.fromhex("12 17 17 0a a0 bb 0d 00".replace(" ", ""))
-print("Applied Battery patch 6: AlarmManager wakeups eliminated, switched to RTC non-wakeup with 15m interval")
+print("Preserved AlarmManager RTC_WAKEUP ping: prevents VPN idle connection drop")
 
 # Battery Patch 7: Default LiteMode.powerSaverFollowSystem to true
 assert dex1[0x2c9f10 : 0x2c9f16] == bytes.fromhex("72 30 4c 02 02 06".replace(" ", ""))
 dex1[0x2c9f10 : 0x2c9f16] = bytes.fromhex("72 30 4c 02 02 03".replace(" ", ""))
 print("Applied Battery patch 7: powerSaverFollowSystem default set to true")
+
+# Single Persistent Background Push Connection: ConnectionsManager.isPushConnectionEnabled() -> always true
+# Ensures client holds exactly one dedicated MTProto push connection to Telegram DC in background
+assert dex1[0x3430a8 : 0x3430b0] == bytes.fromhex("71 00 1b c6 00 00 0c 02".replace(" ", ""))
+dex1[0x3430a8 : 0x3430a8 + 66] = bytes.fromhex("12 10 0f 00".replace(" ", "")) + b"\x00" * 62
+print("Applied Single Background Connection Patch: isPushConnectionEnabled returns true (instant notifications over VPN)")
+
+# Disable Comma After Mention: ExteraConfig.getAddCommaAfterMention() -> always false
+# Removes comma after @username mention
+assert dex1[0x3bda04 : 0x3bda0c] == bytes.fromhex("62 00 74 0d 62 01 72 0d".replace(" ", ""))
+dex1[0x3bda04 : 0x3bda04 + 40] = bytes.fromhex("12 00 0f 00".replace(" ", "")) + b"\x00" * 36
+print("Applied Disable Comma After Mention Patch: getAddCommaAfterMention returns false (no comma after @user)")
 
 # -------------------------------------------------------------
 # Plugins Engine Fix: Ensure Python Plugins engine is enabled,
@@ -664,12 +676,12 @@ manifest_count = manifest.count(old_pkg_u16)
 assert manifest_count == 12
 manifest = manifest.replace(old_pkg_u16, new_pkg_u16)
 
-# Bump versionCode from 71129 to 71155
+# Bump versionCode from 71129 to 71157
 old_vc = struct.pack("<I", 71129)
-new_vc = struct.pack("<I", 71155)
+new_vc = struct.pack("<I", 71157)
 assert manifest.count(old_vc) == 1
 manifest = manifest.replace(old_vc, new_vc)
-print("Bumped versionCode to 71155 in AndroidManifest.xml")
+print("Bumped versionCode to 71157 in AndroidManifest.xml")
 
 print("=== STEP 3: Patch resources.arsc ===")
 arsc_pkg_count = arsc.count(old_pkg_u16)
