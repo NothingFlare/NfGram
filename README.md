@@ -38,8 +38,17 @@ NfGram bridges the gap between maximum messaging speed, uncompromising privacy, 
 ## Key Features
 
 - **High-Speed Parallel Upload Engine (`ParallelDispatchQueue`)**
-  - Replaces serial upload bottlenecks with a dynamic multi-threaded work pool.
-  - Media files, documents, and large chunks stream concurrently across CPU cores, saturating modern high-bandwidth connections without UI freezes or frame drops.
+  - Dynamic multi-threaded work pool streaming media concurrently across cores, saturating modern high-bandwidth connections.
+  - Capped at 4 concurrent streams to prevent CPU pinning, out-of-memory errors, and device overheating while charging.
+
+- **Intelligent Proximity & Ear Sensor Optimization**
+  - Calibrated ear sensor proximity threshold from 5.0cm to 2.0cm, preventing accidental triggers when hands or shadows pass over the display.
+  - Raised vertical tilt verification threshold from 14° to 35° (5.5 m/s²), ensuring earpiece mode and voice playback only activate when deliberately raised to the ear.
+
+- **Thermal & Fast-Charging Overheating Protection**
+  - Controlled parallel upload queues preventing 100% CPU utilization and battery thermal runaway during fast charging.
+  - Neutralized 0ms deadline `KeepAliveJob` background churn, eliminating constant wakeups.
+  - Optimized hardware acceleration and rendering profile preventing Mali GPU driver hangs and thermal crashes (`CEM`).
 
 - **Error-Resilient Python Plugin Runtime (Chaquopy Engine)**
   - Enhanced plugin lifecycle management preventing disappearance upon toggling master switch.
@@ -174,9 +183,18 @@ For full license terms and conditions, refer to the [LICENSE](LICENSE) file.
 
 ## Ключевые особенности
 
-- **Многопоточная параллельная загрузка медиа (`ParallelDispatchQueue`)**
-  - Устранено узкое горлышко однопоточной очереди при передаче файлов.
-  - Потоки отправки данных распределяются по ядрам процессора, позволяя полностью утилизировать современные высокоскоростные каналы связи без зависаний интерфейса.
+- **Высокоскоростная параллельная загрузка (`ParallelDispatchQueue`)**
+  - Многопоточный пул передачи файлов, оптимизированный для максимальной пропускной способности.
+  - Ограничение до 4 параллельных потоков для предотвращения перегрузки процессора и перегрева при зарядке.
+
+- **Интеллектуальная калибровка датчика приближения к уху**
+  - Порог срабатывания датчика приближения откалиброван с 5.0 см до 2.0 см — устранены ложные срабатывания при свайпах, движениях пальцев и падении тени.
+  - Минимальный угол вертикального наклона увеличен с 14° до 35° (5.5 м/с²), гарантируя включение голосового динамика только при реальном поднесении смартфона к уху.
+
+- **Защита от перегрева и вылетов при зарядке**
+  - Оптимизация параллельных сетевых потоков, предотвращающая троттлинг и перегрев аккумулятора во время быстрой зарядки.
+  - Полное отключение цикличного фонового сервиса `KeepAliveJob` (устранена постоянная нагрузка на планировщик задач).
+  - Сбалансированный профиль аппаратного рендеринга — предотвращает сбои видеодрайвера Mali и принудительное закрытие клиента системой при нагреве.
 
 - **Стабильный движок плагинов Python (Chaquopy Engine)**
   - Устранена проблема исчезновения плагинов при отключении и последующем включении главного переключателя.

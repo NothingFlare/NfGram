@@ -57,14 +57,35 @@ with zipfile.ZipFile(VANILLA_APK, "r") as z:
 # -------------------------------------------------------------
 # 1. Patch classes.dex: parallel upload, package name, battery
 # -------------------------------------------------------------
-seq1 = b"\x52\xa3\x87\x31\x35\x23\x09\x00\xb0\x23\x59\xa3\x87\x31"
-seq2 = b"\x52\xa3\x86\x31\x35\x23\x09\x00\xb0\x23\x59\xa3\x86\x31"
-assert dex1.count(seq1) == 1 and dex1.count(seq2) == 1
-idx1 = dex1.find(seq1)
-idx2 = dex1.find(seq2)
-dex1[idx1+4 : idx1+8] = b"\x00\x00\x00\x00"
-dex1[idx2+4 : idx2+8] = b"\x00\x00\x00\x00"
-print("Applied parallel upload patches in classes.dex")
+# Optimal Parallel Uploads: Cap concurrent upload operations at 4 streams (const/4 v2, 4)
+# instead of infinite threads that cause CPU pinning, overheating, and out-of-memory crashes
+assert dex1[0x4eb878 : 0x4eb87a] == bytes.fromhex('12 12')
+dex1[0x4eb878 : 0x4eb87a] = bytes.fromhex('12 42')
+print("Applied capped 4-stream parallel upload patch in classes.dex")
+
+# Proximity and Ear Sensor Optimization:
+# 1. Proximity isNearToSensor: reduce distance threshold from 5.0f to 2.0f
+# Only triggers when phone is within 2 cm of ear/face, eliminating accidental hand-wave triggers
+assert dex1[0x506a18 : 0x506a1c] == bytes.fromhex('15 00 a0 40')
+dex1[0x506a18 : 0x506a1c] = bytes.fromhex('15 00 00 40')
+
+# 2. Accelerometer vertical angle: increase threshold from 2.5f (~14 deg) to 5.5f (~35 deg)
+# Requires phone to actually be raised upright toward the ear before activating proximity wake/earpiece
+assert dex1[0x50ec2e : 0x50ec32] == bytes.fromhex('15 04 20 40')
+dex1[0x50ec2e : 0x50ec32] = bytes.fromhex('15 04 b0 40')
+print("Applied Proximity and Ear sensor anti-accidental trigger patch in classes.dex")
+
+# Thermal and Overheating Protection:
+# 3. Disable KeepAliveJob.startJob (JobScheduler 0ms deadline churn that causes background wakeups)
+assert dex1[0x4f74a4 : 0x4f74a8] == bytes.fromhex('62 00 e6 81')
+dex1[0x4f74a4 : 0x4f74a8] = bytes.fromhex('0e 00 00 00')
+print("Applied KeepAliveJob thermal wakeup suppression patch in classes.dex")
+
+# 4. Cap DevicePerformanceClass to PERFORMANCE_CLASS_AVERAGE in SharedConfig.measureDevicePerformanceClass
+# Prevents GPU driver hangs, surface frame timeouts, and thermal throttling crashes during charging
+assert dex1[0x334778 : 0x33477c] == bytes.fromhex('60 00 93 00')
+dex1[0x334778 : 0x33477c] = bytes.fromhex('12 10 0f 00')
+print("Applied Thermal and Overheating protection patch in classes.dex")
 
 # Battery Patch 1: Disable persistent file logging to disk (BuildVars.LOGS_ENABLED = false)
 assert dex1[0x2905f4 : 0x2905f4 + 12] == bytes.fromhex("71 00 12 2f 00 00 0a 00 6a 00 35 2e".replace(" ", ""))
@@ -75,8 +96,8 @@ print("Applied Battery patch 1: LOGS_ENABLED disabled")
 assert dex1[0x3339b8 : 0x3339bc] == bytes.fromhex("6a 03 11 80".replace(" ", ""))
 dex1[0x3339b8 : 0x3339bc] = bytes.fromhex("6a 02 11 80".replace(" ", "")) # photoViewerBlur = false
 
+# raiseToListen left enabled with improved anti-false trigger sensor thresholds
 assert dex1[0x333a0c : 0x333a10] == bytes.fromhex("6a 03 1f 80".replace(" ", ""))
-dex1[0x333a0c : 0x333a10] = bytes.fromhex("6a 02 1f 80".replace(" ", "")) # raiseToListen = false
 
 assert dex1[0x333a98 : 0x333a9c] == bytes.fromhex("6a 03 dc 7f".replace(" ", ""))
 dex1[0x333a98 : 0x333a9c] = bytes.fromhex("6a 02 dc 7f".replace(" ", "")) # drawActionBarShadow = false
@@ -637,12 +658,12 @@ manifest_count = manifest.count(old_pkg_u16)
 assert manifest_count == 12
 manifest = manifest.replace(old_pkg_u16, new_pkg_u16)
 
-# Bump versionCode from 71129 to 71147
+# Bump versionCode from 71129 to 71149
 old_vc = struct.pack("<I", 71129)
-new_vc = struct.pack("<I", 71147)
+new_vc = struct.pack("<I", 71149)
 assert manifest.count(old_vc) == 1
 manifest = manifest.replace(old_vc, new_vc)
-print("Bumped versionCode to 71147 in AndroidManifest.xml")
+print("Bumped versionCode to 71149 in AndroidManifest.xml")
 
 print("=== STEP 3: Patch resources.arsc ===")
 arsc_pkg_count = arsc.count(old_pkg_u16)
