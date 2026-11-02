@@ -143,6 +143,11 @@ assert dex1[0x3bda04 : 0x3bda0c] == bytes.fromhex("62 00 74 0d 62 01 72 0d".repl
 dex1[0x3bda04 : 0x3bda04 + 40] = bytes.fromhex("12 00 0f 00".replace(" ", "")) + b"\x00" * 36
 print("Applied Disable Comma After Mention Patch: getAddCommaAfterMention returns false (no comma after @user)")
 
+# Neutralize NativeCrashHandler.init call (eliminates rogue signal hooks intercepting ART runtime)
+assert dex1[0x28ecb2 : 0x28ecb2 + 14] == bytes.fromhex("71 00 c4 37 00 00 0c 00 71 10 c5 37 00 00".replace(" ", ""))
+dex1[0x28ecb2 : 0x28ecb2 + 14] = b"\x00" * 14
+print("Applied NativeCrashHandler suppression patch in classes.dex (prevents false SIGSEGV kills)")
+
 # -------------------------------------------------------------
 # Plugins Engine Fix: Ensure Python Plugins engine is enabled,
 # initialized on launch, never drops plugins across toggle cycles,
@@ -676,12 +681,12 @@ manifest_count = manifest.count(old_pkg_u16)
 assert manifest_count == 12
 manifest = manifest.replace(old_pkg_u16, new_pkg_u16)
 
-# Bump versionCode from 71129 to 71159
+# Bump versionCode from 71129 to 71161
 old_vc = struct.pack("<I", 71129)
-new_vc = struct.pack("<I", 71159)
+new_vc = struct.pack("<I", 71161)
 assert manifest.count(old_vc) == 1
 manifest = manifest.replace(old_vc, new_vc)
-print("Bumped versionCode to 71159 in AndroidManifest.xml")
+print("Bumped versionCode to 71161 in AndroidManifest.xml")
 
 print("=== STEP 3: Patch resources.arsc ===")
 arsc_pkg_count = arsc.count(old_pkg_u16)
@@ -895,14 +900,18 @@ with zipfile.ZipFile(VANILLA_APK, "r") as zin, zipfile.ZipFile(unaligned_apk, "w
             so_data[0x11174d8 : 0x11174d8 + 8] = bytes.fromhex("e0 03 1f 2a c0 03 5f d6")
             assert so_data[0x11f0728 : 0x11f0728 + 8] == bytes.fromhex("29 10 40 f9 e8 03 1f 2a")
             so_data[0x11f0728 : 0x11f0728 + 8] = bytes.fromhex("e0 03 1f 2a c0 03 5f d6")
+            assert so_data[0x531024 : 0x531028] == bytes.fromhex("ff c3 01 d1")
+            so_data[0x531024 : 0x531028] = bytes.fromhex("c0 03 5f d6") # ret
             zout.writestr(item, so_data, compress_type=item.compress_type)
-            print("Patched lib/arm64-v8a/libtmessages.49.so: LSPlant hooks neutralized (fixed ART JIT crash)")
+            print("Patched lib/arm64-v8a/libtmessages.49.so: LSPlant hooks & NativeCrashHandler neutralized (fixed ART SIGSEGV crash)")
         elif item.filename == "lib/armeabi-v7a/libtmessages.49.so":
             so_data = bytearray(zin.read(item.filename))
             assert so_data[0xe4bd50 : 0xe4bd50 + 4] == bytes.fromhex("f0 b5 03 af")
             so_data[0xe4bd50 : 0xe4bd50 + 4] = bytes.fromhex("00 20 70 47")
+            assert so_data[0x2a5b8c : 0x2a5b90] == bytes.fromhex("f0 4f 2d e9")
+            so_data[0x2a5b8c : 0x2a5b90] = bytes.fromhex("1e ff 2f e1") # bx lr
             zout.writestr(item, so_data, compress_type=item.compress_type)
-            print("Patched lib/armeabi-v7a/libtmessages.49.so: LSPlant hooks neutralized")
+            print("Patched lib/armeabi-v7a/libtmessages.49.so: LSPlant hooks & NativeCrashHandler neutralized")
         else:
             data = zin.read(item.filename)
             zout.writestr(item, data, compress_type=item.compress_type)
