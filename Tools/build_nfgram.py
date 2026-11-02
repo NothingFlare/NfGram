@@ -57,11 +57,11 @@ with zipfile.ZipFile(VANILLA_APK, "r") as z:
 # -------------------------------------------------------------
 # 1. Patch classes.dex: parallel upload, package name, battery
 # -------------------------------------------------------------
-# Optimal Parallel Uploads: Cap concurrent upload operations at 4 streams (const/4 v2, 4)
-# instead of infinite threads that cause CPU pinning, overheating, and out-of-memory crashes
+# Sequential FileLoader Upload Queue:
+# Retain Telegram's native single-operation queue dispatch (const/4 v2, 1)
+# Ensures all photos in batch albums and video files upload reliably in order without queue deadlocks
 assert dex1[0x4eb878 : 0x4eb87a] == bytes.fromhex('12 12')
-dex1[0x4eb878 : 0x4eb87a] = bytes.fromhex('12 42')
-print("Applied capped 4-stream parallel upload patch in classes.dex")
+print("Preserved native FileLoader upload queue (fixed batch photo album and video upload stalling)")
 
 # Proximity and Ear Sensor Optimization:
 # 1. Proximity isNearToSensor: reduce distance threshold from 5.0f to 2.0f
@@ -676,12 +676,12 @@ manifest_count = manifest.count(old_pkg_u16)
 assert manifest_count == 12
 manifest = manifest.replace(old_pkg_u16, new_pkg_u16)
 
-# Bump versionCode from 71129 to 71157
+# Bump versionCode from 71129 to 71159
 old_vc = struct.pack("<I", 71129)
-new_vc = struct.pack("<I", 71157)
+new_vc = struct.pack("<I", 71159)
 assert manifest.count(old_vc) == 1
 manifest = manifest.replace(old_vc, new_vc)
-print("Bumped versionCode to 71157 in AndroidManifest.xml")
+print("Bumped versionCode to 71159 in AndroidManifest.xml")
 
 print("=== STEP 3: Patch resources.arsc ===")
 arsc_pkg_count = arsc.count(old_pkg_u16)
