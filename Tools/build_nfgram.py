@@ -198,17 +198,17 @@ final_arsc = arsc_header + new_arsc_sp + arsc_rest
 # -----------------------------------------------------------------
 print("=== STEP 4: Patching classes.dex ===")
 
-# Patch 1: getAddCommaAfterMention:()Z -> return false
+# Patch 1: getAddCommaAfterMention:()Z -> return false (full 40-byte method body)
 off_comma = 0x3b3eec
 assert dex1[off_comma : off_comma + 4] == bytes.fromhex("62 00 9f 13")
-dex1[off_comma : off_comma + 20] = bytes.fromhex("12 00 0f 00") + b"\x00" * 16
-print("Patched getAddCommaAfterMention -> returns false (no comma after @user)")
+dex1[off_comma : off_comma + 40] = bytes.fromhex("12 00 0f 00") + b"\x00" * 36
+print("Patched getAddCommaAfterMention -> returns false (no comma after @user, clean 40-byte padding)")
 
-# Patch 2: isPushConnectionEnabled:()Z -> return true
+# Patch 2: isPushConnectionEnabled:()Z -> return true (full 66-byte method body)
 off_push = 0x32ee64
 assert dex1[off_push : off_push + 6] == bytes.fromhex("71 00 e3 bc 00 00")
-dex1[off_push : off_push + 22] = bytes.fromhex("12 10 0f 00") + b"\x00" * 18
-print("Patched isPushConnectionEnabled -> returns true (RF VPN background push kept alive)")
+dex1[off_push : off_push + 66] = bytes.fromhex("12 10 0f 00") + b"\x00" * 62
+print("Patched isPushConnectionEnabled -> returns true (RF VPN background push kept alive, clean 66-byte padding)")
 
 # Patch 3: MediaController.isNearToSensor -> 2.0f threshold
 off_sensor1 = 0x4dcfd0
@@ -237,7 +237,7 @@ assert dex1[off_nch_call : off_nch_call + 6] == bytes.fromhex("71 00 f4 46 00 00
 dex1[off_nch_call : off_nch_call + 14] = b"\x00" * 14
 off_nch_chk = 0x228760
 assert dex1[off_nch_chk : off_nch_chk + 4] == bytes.fromhex("22 00 37 16")
-dex1[off_nch_chk : off_nch_chk + 2] = bytes.fromhex("0e 00") # return-void
+dex1[off_nch_chk : off_nch_chk + 4] = bytes.fromhex("0e 00 00 00") # return-void; nop
 print("Patched NativeCrashHandler -> suppressed init & checkAndHandleNativeCrash (eliminates SIGSEGV loop)")
 
 # Patch 7: ExteraConfig.getPluginsEngine:()Z -> return true
