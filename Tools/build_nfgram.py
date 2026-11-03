@@ -223,13 +223,14 @@ dex1[off_blur : off_blur + 4] = bytes.fromhex("12 00 0f 00")
 print("Patched SharedConfig.canBlurChat -> returns false (disables GPU compute blurs, stops overheating)")
 
 # Patch 5: SharedConfig.loadConfig -> force useNewBlur and photoViewerBlur to false
-off_unb = 0x3230b0
-assert dex1[off_unb : off_unb + 4] == bytes.fromhex("6a 02 80 81")
-dex1[off_unb : off_unb + 4] = bytes.fromhex("12 02 6a 02") # const/4 v2, 0; sput-boolean v2, useNewBlur:Z (at 3230b4: 80 81)
-off_pvb = 0x323126
-assert dex1[off_pvb : off_pvb + 4] == bytes.fromhex("6a 02 4b 81")
-dex1[off_pvb : off_pvb + 4] = bytes.fromhex("12 02 6a 02")
-print("Patched SharedConfig.loadConfig -> useNewBlur & photoViewerBlur disabled")
+off_unb = 0x3230ae
+assert dex1[off_unb : off_unb + 6] == bytes.fromhex("0a 02 6a 02 80 81")
+dex1[off_unb : off_unb + 2] = bytes.fromhex("12 02") # const/4 v2, 0; followed by untouched sput-boolean v2, useNewBlur:Z
+
+off_pvb = 0x323124
+assert dex1[off_pvb : off_pvb + 6] == bytes.fromhex("0a 02 6a 02 4b 81")
+dex1[off_pvb : off_pvb + 2] = bytes.fromhex("12 02") # const/4 v2, 0; followed by untouched sput-boolean v2, photoViewerBlur:Z
+print("Patched SharedConfig.loadConfig -> useNewBlur & photoViewerBlur disabled cleanly")
 
 # Patch 6: Neutralize NativeCrashHandler in Java
 off_nch_call = 0x296820
@@ -265,23 +266,15 @@ assert dex1[off_skip_sm : off_skip_sm + 4] == bytes.fromhex("39 00 0d 00")
 dex1[off_skip_sm : off_skip_sm + 4] = bytes.fromhex("00 00 00 00")
 print("Patched PythonPluginsEngine.initSdk -> loads BasePlugin in safe mode")
 
-# Patch 11: PythonPluginsEngine.requireBasePluginClass() -> Lazy bootstrap SDK on demand
+# Patch 11: PythonPluginsEngine.requireBasePluginClass() -> disable safe mode check and bypass sdkInitialized check cleanly
 off_rbp_sm = 0x224eea
 assert dex1[off_rbp_sm : off_rbp_sm + 4] == bytes.fromhex("39 00 48 00")
 dex1[off_rbp_sm : off_rbp_sm + 4] = bytes.fromhex("00 00 00 00")
 
-off_rbp_py = 0x224f02
-assert dex1[off_rbp_py : off_rbp_py + 8] == bytes.fromhex("54 30 95 18 38 00 2a 00")
-# invoke-direct {v3}, getPython() [70 10 ac 43 03 00] + move-result-object v0 [0c 00]
-dex1[off_rbp_py : off_rbp_py + 8] = bytes.fromhex("70 10 ac 43 03 00 0c 00")
-
-off_rbp_throw = 0x224f6a
-assert dex1[off_rbp_throw : off_rbp_throw + 16] == bytes.fromhex("22 00 69 16 1a 01 21 a3 70 20 3f 6a 10 00 27 00")
-# invoke-direct {v3}, initSdk:()Z (70 10 af 43 03 00)
-# goto 000b / 224ef6 (28 c3)
-# nop padding (00 00 00 00 00 00 00 00)
-dex1[off_rbp_throw : off_rbp_throw + 16] = bytes.fromhex("70 10 af 43 03 00 28 c3 00 00 00 00 00 00 00 00")
-print("Patched PythonPluginsEngine.requireBasePluginClass -> lazily bootstraps SDK on demand (FIXES CRASH)")
+off_rbp_sdk = 0x224ef2
+assert dex1[off_rbp_sdk : off_rbp_sdk + 4] == bytes.fromhex("38 00 3c 00")
+dex1[off_rbp_sdk : off_rbp_sdk + 4] = bytes.fromhex("00 00 00 00")
+print("Patched PythonPluginsEngine.requireBasePluginClass -> bypassed sdkInitialized & safe mode checks (never throws SDK not initialized)")
 
 # Patch 12: PythonPluginsEngine.findModuleNameOwner -> return null immediately
 off_fmno = 0x223728
