@@ -60,13 +60,15 @@ for i in range(str_count):
         s = manifest_raw[p : p + u16_len * 2].decode("utf-16le", errors="replace")
     strings.append(s)
 
-# Replace OLD_PACKAGE -> NEW_PACKAGE in manifest strings
+# Replace OLD_PACKAGE -> NEW_PACKAGE only for applicationId, permissions and content provider authorities.
+# DO NOT replace Java class names: IconPackProvider, PluginAnalyzerService, UpdaterUtils$UpdateReceiver, or activity aliases.
+REPLACE_INDICES = {233, 239, 267, 268, 269, 270, 272, 273, 274, 276, 278, 279}
 repl_count = 0
-for i in range(len(strings)):
-    if OLD_PACKAGE in strings[i]:
-        strings[i] = strings[i].replace(OLD_PACKAGE, NEW_PACKAGE)
-        repl_count += 1
-print(f"Replaced {repl_count} occurrences of {OLD_PACKAGE} in AndroidManifest.xml")
+for i in REPLACE_INDICES:
+    assert OLD_PACKAGE in strings[i], f"String {i} does not contain {OLD_PACKAGE}: {strings[i]}"
+    strings[i] = strings[i].replace(OLD_PACKAGE, NEW_PACKAGE)
+    repl_count += 1
+print(f"Selectively replaced {repl_count} manifest package/authority strings (preserved Java class names)")
 
 # Re-encode manifest StringPool (UTF-8)
 new_str_data = bytearray()
@@ -267,6 +269,11 @@ print("Patched PythonPluginsEngine.initSdk -> loads BasePlugin in safe mode")
 off_rbp_sm = 0x224eea
 assert dex1[off_rbp_sm : off_rbp_sm + 4] == bytes.fromhex("39 00 48 00")
 dex1[off_rbp_sm : off_rbp_sm + 4] = bytes.fromhex("00 00 00 00")
+
+off_rbp_py = 0x224f02
+assert dex1[off_rbp_py : off_rbp_py + 8] == bytes.fromhex("54 30 95 18 38 00 2a 00")
+# invoke-direct {v3}, getPython() [70 10 ac 43 03 00] + move-result-object v0 [0c 00]
+dex1[off_rbp_py : off_rbp_py + 8] = bytes.fromhex("70 10 ac 43 03 00 0c 00")
 
 off_rbp_throw = 0x224f6a
 assert dex1[off_rbp_throw : off_rbp_throw + 16] == bytes.fromhex("22 00 69 16 1a 01 21 a3 70 20 3f 6a 10 00 27 00")
