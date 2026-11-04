@@ -133,7 +133,32 @@ assert dex1[0x329700 : 0x329706] == bytes.fromhex("71 00 4e d5 00 00")
 dex1[0x329700 : 0x329700 + 36] = bytes.fromhex("12 00 0f 00") + b"\x00" * 32 # chatBlurEnabled = false
 print("Applied Battery patch 4: canBlurChat and chatBlurEnabled disabled (stops GPU shader overhead)")
 
-# Battery Patch 5: Keep LiteMode.loadPreference 100% vanilla to prevent ART VerifyError
+# Battery Patch 5: Robust, crash-proof LiteMode.loadPreference (linear bytecode, eliminates legacy type-confused jumps)
+c_off_lp = 0x2c6478
+base_lp = c_off_lp + 16
+assert dex1[base_lp : base_lp + 4] == bytes.fromhex("60 00 2e 34")
+
+code_lp = bytearray()
+code_lp.extend(bytes.fromhex("71 00 73 c7 00 00")) # invoke-static {}, getGlobalMainSettings
+code_lp.extend(bytes.fromhex("0c 00"))             # move-result-object v0
+code_lp.extend(bytes.fromhex("1b 01 f9 22 01 00")) # const-string/jumbo v1, "lite_mode6"
+code_lp.extend(bytes.fromhex("60 02 2e 34"))       # sget v2, PRESET_HIGH
+code_lp.extend(bytes.fromhex("72 30 54 02 10 02")) # invoke-interface {v0, v1, v2}, getInt
+code_lp.extend(bytes.fromhex("0a 01"))             # move-result v1
+code_lp.extend(bytes.fromhex("67 01 39 34"))       # sput v1, value
+code_lp.extend(bytes.fromhex("12 01"))             # const/4 v1, 0
+code_lp.extend(bytes.fromhex("67 01 38 34"))       # sput v1, powerSaverLevel
+code_lp.extend(bytes.fromhex("12 11"))             # const/4 v1, 1
+code_lp.extend(bytes.fromhex("6a 01 37 34"))       # sput-boolean v1, powerSaverFollowSystem
+code_lp.extend(bytes.fromhex("6a 01 35 34"))       # sput-boolean v1, loaded
+code_lp.extend(bytes.fromhex("0e 00"))             # return-void
+
+assert len(code_lp) <= 654
+while len(code_lp) < 654:
+    code_lp.extend(b"\x0e\x00")
+
+dex1[base_lp : base_lp + 654] = code_lp
+print("Applied Battery patch 5: robust, crash-proof LiteMode.loadPreference")
 
 # Single Persistent Background Push Connection: ConnectionsManager.isPushConnectionEnabled() -> always true
 assert dex1[0x337fd0 : 0x337fd6] == bytes.fromhex("71 00 74 c7 00 00")
@@ -348,12 +373,12 @@ manifest_count = manifest.count(old_pkg_u16)
 assert manifest_count == 13
 manifest = manifest.replace(old_pkg_u16, new_pkg_u16)
 
-# Bump versionCode from 72379 to 72385
+# Bump versionCode from 72379 to 72389
 old_vc = struct.pack("<I", 72379)
-new_vc = struct.pack("<I", 72385)
+new_vc = struct.pack("<I", 72389)
 assert manifest.count(old_vc) == 1
 manifest = manifest.replace(old_vc, new_vc)
-print("Bumped versionCode to 72385 in AndroidManifest.xml")
+print("Bumped versionCode to 72389 in AndroidManifest.xml")
 
 print("=== STEP 3: Patch resources.arsc ===")
 arsc_pkg_count = arsc.count(old_pkg_u16)
