@@ -21,7 +21,7 @@ OUTPUT_APK_PROJECT = os.path.join(BASE_DIR, "NfGram-13.1.1-universal.apk")
 
 KEYSTORE = os.path.join(BASE_DIR, "Tools", "nfgram_release.keystore")
 ZIPALIGN = r"C:\Users\styuk\AppData\Local\Android\Sdk\build-tools\34.0.0\zipalign.exe"
-APKSIGNER = r"C:\Users\styuk\AppData\Local\Android\Sdk\build-tools\34.0.0\apksigner.bat"
+APKSIGNER_JAR = r"C:\Users\styuk\AppData\Local\Android\Sdk\build-tools\34.0.0\lib\apksigner.jar"
 AAPT = r"C:\Users\styuk\AppData\Local\Android\Sdk\build-tools\34.0.0\aapt.exe"
 ANDROID_JAR = r"C:\Users\styuk\AppData\Local\Android\Sdk\platforms\android-34\android.jar"
 D8 = r"C:\Users\styuk\AppData\Local\Android\Sdk\build-tools\34.0.0\d8.bat"
@@ -295,19 +295,43 @@ while len(code_updater) < 648:
     code_updater.extend(b"\x00\x00")
 dex4[0x43a984 : 0x43a984 + 648] = code_updater
 
+# 3. Patch MainPreferencesActivity (fillItems, onClick) and lighthouse_top string in classes4.dex
+assert dex4[0x7b9500 : 0x7b9500 + 25] == b"lightnessEnhancementParam"
+dex4[0x7b9500 : 0x7b9500 + 25] = b"lighthouse_top           "
+
+code_fi_bytes = bytes.fromhex(
+    "080011000801100054125c505513ad89390317003802150054237a5215040f7f711026f504000c046e207a09430054237752140471cc2eff6e20ed0743001303c600712004fc32000c0212136e2021fc32006e2074ef20006002c383711026f502000c02711009fc02000c026e2074ef20005512ad893902350013020a0014042603087f140324de0f7f711026f503000c037130f8fb42030c0214033030e8ff6e301efc42036e2074ef20001302080014042703087f1403a3fa0f7f711026f503000c037130f8fb42030c021403ff7095ff6e301efc42036e2074ef200028361222122732721000123732721200124732721400125732721600600482826003e68428146004998260037884280f6004ca8260038883280a60047e8260035b8628056004a9826003ed85711026f503000c037130f8fb42030c036e2074ef3000d802020112773472ceff710010fc00000c026e2074ef20006002e184711026f502000c02711009fc02000c026e2074ef2000130207006004758260031f86711026f503000c035515ad89390509001a05b8c86e1004ee05000c0528031a05b8a57140f9fb42530c026e2074ef20005512ad8938023b001302080060048d8260035b86711026f503000c031a05b7a57140f9fb42530c026e2074ef2000130209006004cd826003eb83711026f503000c031a051e227140f9fb42530c026e2074ef200013020a006004908260033787711026f503000c031a05c2a57140f9fb42530c026e2074ef2000710010fc00000c026e2074ef20000e00000000000000"
+)
+assert len(code_fi_bytes) == 574
+dex4[0x410e74 : 0x410e74 + 574] = code_fi_bytes
+
+code_oc_bytes = bytes.fromhex(
+    "5211d18a2b0180000e002201931a70108e9101006e2041f810000e002201f11a7010019301006e2041f810000e002201511b70107f9401006e2041f810000e002201881970102c8c01006e2041f810000e002201aa1a7010f49101006e2041f810000e000e001a01b8c86e1004ee01000c015502ad89380204001a01b8a57020af9110000e005501ad89380106001a01b7a57020af9110000e0012021c01fc306e2004ed21000c016e2073ee21000c011f01ad356e2041f810000e006e102bf800000c001a01b4bc712053f610000e005501ad89380108006e102bf800000c001a01b7bc712053f610000e002201961a7010a791010012125c12ad896e2041f810000e0000010a0001000000030000000c000000150000001e000000270000003000000031000000410000005c0000006600000000000000000000000000000000000000000000000000000000000000"
+)
+assert len(code_oc_bytes) == 336
+dex4[0x4110c4 : 0x4110c4 + 336] = code_oc_bytes
+print("Applied MainPreferencesActivity unified settings hierarchy patch in classes4.dex")
+
 dex4[12:32] = hashlib.sha1(dex4[32:]).digest()
 dex4[8:12] = struct.pack("<I", zlib.adler32(dex4[12:]) & 0xFFFFFFFF)
-print("classes4.dex patched with GitHub release updater hook and verified!")
+print("classes4.dex patched with GitHub release updater hook and unified settings, verified!")
 
 # -------------------------------------------------------------
 # 3. Patch classes7.dex: SettingsActivity green NfGram button
 # -------------------------------------------------------------
 # SettingsActivity.fillItems: Row 1 emerald green #ff2ecc71 button with "NfGram" title
-patch_settings_btn = bytes.fromhex("15 03 0f 7f 71 10 0e 10 03 00 0c 03 12 f5 14 06 71 cc 2e ff 71 53 d0 d9 65 26 0c 02 6e 20 36 0b 21 00".replace(" ", ""))
-assert len(patch_settings_btn) == 34
-assert dex7[0x5df8d2 : 0x5df8d2 + 34] == bytes.fromhex("60 03 2d 14 71 10 0e 10 03 00 0c 03 12 f5 14 06 30 30 e8 ff 71 53 d0 d9 65 26 0c 02 6e 20 36 0b 21 00".replace(" ", ""))
-dex7[0x5df8d2 : 0x5df8d2 + 34] = patch_settings_btn
-print("Applied SettingsActivity emerald green NfGram button in classes7.dex")
+# Replace field@142d (Preferences) with field@0894 (AppName)
+assert dex7[0x5df8d2 : 0x5df8d6] == bytes.fromhex("60 03 2d 14")
+dex7[0x5df8d4 : 0x5df8d6] = bytes.fromhex("94 08")
+
+# Replace red color #ffe83030 with emerald green #ff2ecc71
+assert dex7[0x5df8e0 : 0x5df8e6] == bytes.fromhex("14 06 30 30 e8 ff")
+dex7[0x5df8e0 : 0x5df8e6] = bytes.fromhex("14 06 71 cc 2e ff")
+
+# Remove second button: NOP 38 bytes (from 0x5df8f4 to 0x5df91a)
+assert dex7[0x5df8f4 : 0x5df8f4 + 4] == bytes.fromhex("60 02 dd 04")
+dex7[0x5df8f4 : 0x5df8f4 + 38] = b"\x00" * 38
+print("Applied SettingsActivity single emerald green NfGram button in classes7.dex")
 
 dex7[12:32] = hashlib.sha1(dex7[32:]).digest()
 dex7[8:12] = struct.pack("<I", zlib.adler32(dex7[12:]) & 0xFFFFFFFF)
@@ -581,7 +605,8 @@ print(f"Zipalign succeeded: {aligned_apk} ({os.path.getsize(aligned_apk)} bytes)
 
 print("=== STEP 8: Sign APK with Keystore ===")
 cmd_sign = [
-    APKSIGNER, "sign",
+    "java", "-Xms64m", "-Xmx512m", "-XX:+UseSerialGC", "-jar", APKSIGNER_JAR,
+    "sign",
     "--ks", KEYSTORE,
     "--ks-pass", "pass:nfgram",
     "--key-pass", "pass:nfgram",
@@ -598,7 +623,11 @@ if res.returncode != 0:
 print("Apksigner signing succeeded!")
 
 print("=== STEP 9: Verify Signature and Badging ===")
-res_sig = subprocess.run([APKSIGNER, "verify", "--verbose", "--print-certs", aligned_apk], capture_output=True, text=True)
+cmd_verify = [
+    "java", "-Xms64m", "-Xmx512m", "-XX:+UseSerialGC", "-jar", APKSIGNER_JAR,
+    "verify", "--verbose", "--print-certs", aligned_apk
+]
+res_sig = subprocess.run(cmd_verify, capture_output=True, text=True)
 for l in res_sig.stdout.splitlines():
     if "Verified" in l or "Signer #1 certificate DN" in l:
         print("  ", l)
