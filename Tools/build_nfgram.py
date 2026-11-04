@@ -1,9 +1,5 @@
 """
-/*
- * Copyright (C) 2026 NothingFlare 
- *
- * Licensed under GNU GPLv3.
- */
+Full NfGram 13.1.1 Build & Verification Script
 """
 
 import zipfile
@@ -15,661 +11,309 @@ import os
 import shutil
 from PIL import Image, ImageDraw
 import io
-import xml.etree.ElementTree as ET
-import re
 
-VANILLA_APK = r"c:\Users\styuk\Downloads\AyuGram Desktop\vanilla-AyuGram-full-20261005.apk"
+BASE_DIR = r"C:\project\NfGram Android"
+VANILLA_APK = r"c:\Users\styuk\Desktop\vanilla-AyuGram-full-20261104.apk"
 EXTERA_APK = r"c:\Users\styuk\Downloads\AyuGram Desktop\exteraGram-full-universal-20261004.apk"
-OUTPUT_APK_NFGRAM = r"c:\Users\styuk\Downloads\AyuGram Desktop\NfGram-12.10.6-universal.apk"
-OUTPUT_APK_DESKTOP = r"C:\Users\styuk\Desktop\NfGram-12.10.6-universal.apk"
-OUTPUT_APK_PROJECT = r"C:\project\ayugram\NfGram-12.10.6-universal.apk"
+OUTPUT_APK_NFGRAM = r"c:\Users\styuk\Downloads\AyuGram Desktop\NfGram-13.1.1-universal.apk"
+OUTPUT_APK_DESKTOP = r"C:\Users\styuk\Desktop\NfGram-13.1.1-universal.apk"
+OUTPUT_APK_PROJECT = os.path.join(BASE_DIR, "NfGram-13.1.1-universal.apk")
 
-KEYSTORE = r"C:\project\ayugram\Tools\nfgram_release.keystore"
+KEYSTORE = os.path.join(BASE_DIR, "Tools", "nfgram_release.keystore")
 ZIPALIGN = r"C:\Users\styuk\AppData\Local\Android\Sdk\build-tools\34.0.0\zipalign.exe"
 APKSIGNER = r"C:\Users\styuk\AppData\Local\Android\Sdk\build-tools\34.0.0\apksigner.bat"
 AAPT = r"C:\Users\styuk\AppData\Local\Android\Sdk\build-tools\34.0.0\aapt.exe"
-AAPT2 = r"C:\Users\styuk\AppData\Local\Android\Sdk\build-tools\34.0.0\aapt2.exe"
 ANDROID_JAR = r"C:\Users\styuk\AppData\Local\Android\Sdk\platforms\android-34\android.jar"
+D8 = r"C:\Users\styuk\AppData\Local\Android\Sdk\build-tools\34.0.0\d8.bat"
 DEXDUMP = r"C:\Users\styuk\AppData\Local\Android\Sdk\build-tools\34.0.0\dexdump.exe"
 
 OLD_PACKAGE = "com.radolyn.ayugram"
 NEW_PACKAGE = "com.red.nfgram.chat"
 assert len(NEW_PACKAGE) == len(OLD_PACKAGE) == 19
 
+print("=== STEP 0: Compile NfGramGithubUpdater.java to classes9.dex ===")
+build_tmp = os.path.join(BASE_DIR, "Tools", "build_tmp")
+if os.path.exists(build_tmp):
+    shutil.rmtree(build_tmp)
+os.makedirs(build_tmp, exist_ok=True)
+
+updater_src = os.path.join(BASE_DIR, "TMessagesProj", "src", "main", "java", "com", "radolyn", "ayugram", "utils", "NfGramGithubUpdater.java")
+cmd_javac = [
+    "javac",
+    "--release", "11",
+    "-cp", ANDROID_JAR,
+    "-d", build_tmp,
+    updater_src
+]
+res_javac = subprocess.run(cmd_javac, capture_output=True, text=True)
+if res_javac.returncode != 0:
+    print("Javac compilation failed:", res_javac.stderr)
+    exit(1)
+
+class_files = []
+for root, _, files in os.walk(build_tmp):
+    for fn in files:
+        if fn.endswith(".class"):
+            class_files.append(os.path.join(root, fn))
+
+cmd_d8 = [
+    D8,
+    "--lib", ANDROID_JAR,
+    "--output", build_tmp
+] + class_files
+res_d8 = subprocess.run(cmd_d8, capture_output=True, text=True)
+if res_d8.returncode != 0:
+    print("D8 compilation failed:", res_d8.stderr)
+    exit(1)
+
+dex9_path = os.path.join(build_tmp, "classes.dex")
+assert os.path.exists(dex9_path)
+with open(dex9_path, "rb") as f:
+    dex9 = f.read()
+print(f"Compiled classes9.dex successfully: {len(dex9)} bytes")
+
 print("=== STEP 1: Patch DEX files ===")
 with zipfile.ZipFile(VANILLA_APK, "r") as z:
     dex1 = bytearray(z.read("classes.dex"))
     dex4 = bytearray(z.read("classes4.dex"))
-    dex5 = bytearray(z.read("classes5.dex"))
-    dex6 = bytearray(z.read("classes6.dex"))
     dex7 = bytearray(z.read("classes7.dex"))
     manifest = bytearray(z.read("AndroidManifest.xml"))
     arsc = bytearray(z.read("resources.arsc"))
 
 # -------------------------------------------------------------
-# 1. Patch classes.dex: parallel upload, package name, battery
+# 1. Patch classes.dex: sensors, thermal, battery, pluginsEngine
 # -------------------------------------------------------------
-# Sequential FileLoader Upload Queue:
-# Retain Telegram's native single-operation queue dispatch (const/4 v2, 1)
-# Ensures all photos in batch albums and video files upload reliably in order without queue deadlocks
-assert dex1[0x4eb878 : 0x4eb87a] == bytes.fromhex('12 12')
-print("Preserved native FileLoader upload queue (fixed batch photo album and video upload stalling)")
-
 # Proximity and Ear Sensor Optimization:
 # 1. Proximity isNearToSensor: reduce distance threshold from 5.0f to 2.0f
-# Only triggers when phone is within 2 cm of ear/face, eliminating accidental hand-wave triggers
-assert dex1[0x506a18 : 0x506a1c] == bytes.fromhex('15 00 a0 40')
-dex1[0x506a18 : 0x506a1c] = bytes.fromhex('15 00 00 40')
+assert dex1[0x500cc4 : 0x500cc8] == bytes.fromhex('15 00 a0 40')
+dex1[0x500cc4 : 0x500cc8] = bytes.fromhex('15 00 00 40')
 
-# 2. Accelerometer vertical angle: increase threshold from 2.5f (~14 deg) to 5.5f (~35 deg)
-# Requires phone to actually be raised upright toward the ear before activating proximity wake/earpiece
-assert dex1[0x50ec2e : 0x50ec32] == bytes.fromhex('15 04 20 40')
-dex1[0x50ec2e : 0x50ec32] = bytes.fromhex('15 04 b0 40')
+# 2. Accelerometer vertical angle: increase threshold from 2.5f to 5.5f
+assert dex1[0x5097aa : 0x5097ae] == bytes.fromhex('15 04 20 40')
+dex1[0x5097aa : 0x5097ae] = bytes.fromhex('15 04 b0 40')
 print("Applied Proximity and Ear sensor anti-accidental trigger patch in classes.dex")
 
 # Thermal and Overheating Protection:
-# 3. Disable KeepAliveJob.startJob (JobScheduler 0ms deadline churn that causes background wakeups)
-assert dex1[0x4f74a4 : 0x4f74ba] == bytes.fromhex("62 00 e6 81 22 01 e8 22 70 10 20 b5 01 00 6e 20 da ad 10 00 0e 00".replace(" ", ""))
-dex1[0x4f74a4 : 0x4f74ba] = bytes.fromhex("0e 00".replace(" ", "")) + b"\x00" * 20
+# 3. Disable KeepAliveJob.startJob (JobScheduler deadline churn)
+assert dex1[0x4f1b0c : 0x4f1b0c + 22] == bytes.fromhex("62 00 f1 83 22 01 2e 23 70 10 83 b6 01 00 6e 20 65 af 10 00 0e 00".replace(" ", ""))
+dex1[0x4f1b0c : 0x4f1b0c + 22] = bytes.fromhex("0e 00") + b"\x00" * 20
 print("Applied KeepAliveJob thermal wakeup suppression patch in classes.dex")
 
-# 4. Cap DevicePerformanceClass to PERFORMANCE_CLASS_AVERAGE in SharedConfig.measureDevicePerformanceClass
-# Prevents GPU driver hangs, surface frame timeouts, and thermal throttling crashes during charging
-assert dex1[0x334778 : 0x33477c] == bytes.fromhex('60 00 93 00')
-dex1[0x334778 : 0x33477c] = bytes.fromhex('12 10 0f 00')
+# 4. Cap DevicePerformanceClass to PERFORMANCE_CLASS_AVERAGE (1)
+assert dex1[0x32a320 : 0x32a324] == bytes.fromhex("60 00 96 00")
+dex1[0x32a320 : 0x32a324] = bytes.fromhex("12 10 0f 00")
+
 # 4b. Cap SharedConfig.getDevicePerformanceClass unconditionally to PERFORMANCE_CLASS_AVERAGE (1)
-# Ensures even if preferences previously cached PERFORMANCE_CLASS_HIGH, the app will never enable high-load shaders that crash Mali GPUs
-assert dex1[0x333c58 : 0x333c58 + 26] == bytes.fromhex("60 00 d6 7f 33 10 08 00 71 00 6f d4 00 00 0a 00 67 00 d6 7f 60 00 d6 7f 0f 00".replace(" ", ""))
-dex1[0x333c58 : 0x333c58 + 26] = bytes.fromhex("12 10 0f 00".replace(" ", "")) + b"\x00" * 22
+assert dex1[0x329808 : 0x329808 + 4] == bytes.fromhex("60 00 2b 82")
+dex1[0x329808 : 0x329808 + 38] = bytes.fromhex("12 10 0f 00") + b"\x00" * 34
 print("Applied Thermal and Overheating protection patch in classes.dex (capped getDevicePerformanceClass to AVERAGE)")
 
-# Battery Patch 1: Disable persistent file logging to disk (BuildVars.LOGS_ENABLED = false)
-assert dex1[0x2905f4 : 0x2905f4 + 12] == bytes.fromhex("71 00 12 2f 00 00 0a 00 6a 00 35 2e".replace(" ", ""))
-dex1[0x2905f4 : 0x2905f4 + 12] = bytes.fromhex("12 00 6a 00 35 2e 00 00 00 00 00 00".replace(" ", ""))
+# Battery Patch 1: Disable persistent file logging (BuildVars.LOGS_ENABLED = false)
+assert dex1[0x292e44 : 0x292e44 + 12] == bytes.fromhex("71 00 3f 2f 00 00 0a 00 6a 00 c8 2e".replace(" ", ""))
+dex1[0x292e44 : 0x292e44 + 12] = bytes.fromhex("12 00 6a 00 c8 2e 00 00 00 00 00 00".replace(" ", ""))
 print("Applied Battery patch 1: LOGS_ENABLED disabled")
 
-# Battery Patch 2: Disable Proximity sensor polling (raiseToListen) and GPU blur shaders in SharedConfig.<clinit>
-assert dex1[0x3339b8 : 0x3339bc] == bytes.fromhex("6a 03 11 80".replace(" ", ""))
-dex1[0x3339b8 : 0x3339bc] = bytes.fromhex("6a 02 11 80".replace(" ", "")) # photoViewerBlur = false
+# Battery Patch 2: Disable drawActionBarShadow in SharedConfig.<clinit>
+assert dex1[0x329654 : 0x329658] == bytes.fromhex("6a 03 05 82")
+dex1[0x329654 : 0x329658] = bytes.fromhex("6a 02 05 82")
 
-# raiseToListen left enabled with improved anti-false trigger sensor thresholds
-assert dex1[0x333a0c : 0x333a10] == bytes.fromhex("6a 03 1f 80".replace(" ", ""))
+# Battery Patch 3: Force disable real-time compute blur shaders in SharedConfig.loadConfig()
+assert dex1[0x32a16c : 0x32a172] == bytes.fromhex("0a 02 6a 02 6f 82")
+dex1[0x32a16c : 0x32a172] = bytes.fromhex("12 02 6a 02 6f 82") # useNewBlur = false
 
-assert dex1[0x333a98 : 0x333a9c] == bytes.fromhex("6a 03 dc 7f".replace(" ", ""))
-dex1[0x333a98 : 0x333a9c] = bytes.fromhex("6a 02 dc 7f".replace(" ", "")) # drawActionBarShadow = false
-print("Applied Battery patch 2: SharedConfig sensor polling & blur defaults disabled")
+assert dex1[0x32a1e2 : 0x32a1e8] == bytes.fromhex("0a 02 6a 02 3a 82")
+dex1[0x32a1e2 : 0x32a1e8] = bytes.fromhex("12 02 6a 02 3a 82") # photoViewerBlur = false
 
-# Battery Patch 3: Force disable real-time compute blur shaders (SharedConfig.useNewBlur = false)
-assert dex1[0x3345c6 : 0x3345cc] == bytes.fromhex("0a 02 6a 02 46 80".replace(" ", ""))
-dex1[0x3345c6 : 0x3345cc] = bytes.fromhex("12 02 6a 02 46 80".replace(" ", ""))
-
-# Force disable photoViewerBlur in SharedConfig.loadConfig()
-# Prevents PhotoViewer compute shader allocations from crashing on high-resolution images
-assert dex1[0x33463c : 0x33463c + 6] == bytes.fromhex("0a 02 6a 02 11 80".replace(" ", ""))
-dex1[0x33463c : 0x33463c + 6] = bytes.fromhex("12 02 6a 02 11 80".replace(" ", ""))
-
-# Force disable drawActionBarShadow in SharedConfig.loadConfig()
-assert dex1[0x334730 : 0x334730 + 6] == bytes.fromhex("0a 02 6a 02 dc 7f".replace(" ", ""))
-dex1[0x334730 : 0x334730 + 6] = bytes.fromhex("12 02 6a 02 dc 7f".replace(" ", ""))
+assert dex1[0x32a2d8 : 0x32a2de] == bytes.fromhex("0a 02 6a 02 05 82")
+dex1[0x32a2d8 : 0x32a2de] = bytes.fromhex("12 02 6a 02 05 82") # drawActionBarShadow = false
 print("Applied Battery patch 3: useNewBlur, photoViewerBlur & drawActionBarShadow disabled in loadConfig")
 
-# Battery Patch 4: Background Service & Push Connection
-# Keep AyuConfig.keepAliveService enabled so NotificationsService runs as a foreground service
-assert dex1[0x24a674 : 0x24a67e] == bytes.fromhex("71 00 da 71 00 00 0a 03 b7 43".replace(" ", ""))
-print("Preserved keepAliveService: NotificationsService will maintain persistent background push socket")
+# Battery Patch 4: Disable chat GPU background blur pass
+assert dex1[0x3296ec : 0x3296f0] == bytes.fromhex("12 10 0f 00")
+dex1[0x3296ec : 0x3296f0] = bytes.fromhex("12 00 0f 00") # canBlurChat = false
 
-# Battery Patch 5: Disable chat GPU background blur pass (SharedConfig.canBlurChat = false, chatBlurEnabled = false)
-assert dex1[0x333b30 : 0x333b34] == bytes.fromhex("12 10 0f 00".replace(" ", ""))
-dex1[0x333b30 : 0x333b34] = bytes.fromhex("12 00 0f 00".replace(" ", ""))
+assert dex1[0x329700 : 0x329706] == bytes.fromhex("71 00 4e d5 00 00")
+dex1[0x329700 : 0x329700 + 36] = bytes.fromhex("12 00 0f 00") + b"\x00" * 32 # chatBlurEnabled = false
+print("Applied Battery patch 4: canBlurChat and chatBlurEnabled disabled (stops GPU shader overhead)")
 
-assert dex1[0x333b44 : 0x333b44 + 36] == bytes.fromhex("71 00 48 d4 00 00 0a 00 38 00 0c 00 13 00 00 01 71 10 3a b5 00 00 0a 00 38 00 04 00 12 10 0f 00 12 00 0f 00".replace(" ", ""))
-dex1[0x333b44 : 0x333b44 + 36] = bytes.fromhex("12 00 0f 00".replace(" ", "")) + b"\x00" * 32
-print("Applied Battery patch 5: canBlurChat and chatBlurEnabled disabled (stops GPU shader overhead)")
-
-# Battery Patch 6: startPushService AlarmManager RTC_WAKEUP 60s
-# Retain periodic RTC_WAKEUP ping to prevent VPN / mobile carrier timeout when app is in background
-assert dex1[0x28f174 : 0x28f17c] == bytes.fromhex("12 07 17 0a 60 ea 00 00".replace(" ", ""))
-print("Preserved AlarmManager RTC_WAKEUP ping: prevents VPN idle connection drop")
-
-# Battery Patch 7: Default LiteMode.powerSaverFollowSystem to true
-assert dex1[0x2c9f10 : 0x2c9f16] == bytes.fromhex("72 30 4c 02 02 06".replace(" ", ""))
-dex1[0x2c9f10 : 0x2c9f16] = bytes.fromhex("72 30 4c 02 02 03".replace(" ", ""))
-print("Applied Battery patch 7: powerSaverFollowSystem default set to true")
+# Battery Patch 5: Default LiteMode.powerSaverFollowSystem to true
+assert dex1[0x2c6704 : 0x2c670a] == bytes.fromhex("72 30 52 02 02 06")
+dex1[0x2c6708] = 0x03
+print("Applied Battery patch 5: powerSaverFollowSystem default set to true")
 
 # Single Persistent Background Push Connection: ConnectionsManager.isPushConnectionEnabled() -> always true
-# Ensures client holds exactly one dedicated MTProto push connection to Telegram DC in background
-assert dex1[0x3430a8 : 0x3430b0] == bytes.fromhex("71 00 1b c6 00 00 0c 02".replace(" ", ""))
-dex1[0x3430a8 : 0x3430a8 + 66] = bytes.fromhex("12 10 0f 00".replace(" ", "")) + b"\x00" * 62
-print("Applied Single Background Connection Patch: isPushConnectionEnabled returns true (instant notifications over VPN)")
+assert dex1[0x337fd0 : 0x337fd6] == bytes.fromhex("71 00 74 c7 00 00")
+dex1[0x337fd0 : 0x337fd0 + 66] = bytes.fromhex("12 10 0f 00") + b"\x00" * 62
+print("Applied Single Background Connection Patch: isPushConnectionEnabled returns true")
 
 # Disable Comma After Mention: ExteraConfig.getAddCommaAfterMention() -> always false
-# Removes comma after @username mention
-assert dex1[0x3bda04 : 0x3bda0c] == bytes.fromhex("62 00 74 0d 62 01 72 0d".replace(" ", ""))
-dex1[0x3bda04 : 0x3bda04 + 40] = bytes.fromhex("12 00 0f 00".replace(" ", "")) + b"\x00" * 36
-print("Applied Disable Comma After Mention Patch: getAddCommaAfterMention returns false (no comma after @user)")
+assert dex1[0x3ad188 : 0x3ad190] == bytes.fromhex("62 00 85 0d 62 01 83 0d")
+dex1[0x3ad188 : 0x3ad188 + 40] = bytes.fromhex("12 00 0f 00") + b"\x00" * 36
+print("Applied Disable Comma After Mention Patch: getAddCommaAfterMention returns false")
 
-# Neutralize NativeCrashHandler.init call (eliminates rogue signal hooks intercepting ART runtime)
-assert dex1[0x28ecb2 : 0x28ecb2 + 14] == bytes.fromhex("71 00 c4 37 00 00 0c 00 71 10 c5 37 00 00".replace(" ", ""))
-dex1[0x28ecb2 : 0x28ecb2 + 14] = b"\x00" * 14
+# Neutralize NativeCrashHandler.init call
+assert dex1[0x2919a0 : 0x2919a0 + 14] == bytes.fromhex("71 00 cf 38 00 00 0c 00 71 10 d0 38 00 00")
+dex1[0x2919a0 : 0x2919a0 + 14] = b"\x00" * 14
 print("Applied NativeCrashHandler suppression patch in classes.dex (prevents false SIGSEGV kills)")
 
-# -------------------------------------------------------------
-# Plugins Engine Fix: Ensure Python Plugins engine is enabled,
-# initialized on launch, never drops plugins across toggle cycles,
-# and allows enabling in safe mode.
-# -------------------------------------------------------------
-# 1. ExteraConfig.loadConfig() -> default preferences.getBoolean("pluginsEngine", true)
-assert dex1[0x1e6850 : 0x1e6856] == bytes.fromhex("72 30 4c 02 21 03".replace(" ", ""))
-dex1[0x1e6850 : 0x1e6856] = bytes.fromhex("72 30 4c 02 21 06".replace(" ", ""))
-print("Applied Plugin Patch 1: ExteraConfig.loadConfig() defaults pluginsEngine preference to true")
+# Plugins Engine Fix: Ensure Python Plugins engine is enabled & stable
+assert dex1[0x1e997a : 0x1e997e] == bytes.fromhex("39 01 34 00")
+dex1[0x1e997a : 0x1e997e] = bytes.fromhex("28 34 00 00") # bypass killswitch
 
-# 1b. ExteraConfig.loadConfig() -> bypass auto-killswitch resetting pluginsEngine to false
-assert dex1[0x1e67de : 0x1e67e2] == bytes.fromhex("39 01 34 00".replace(" ", ""))
-dex1[0x1e67de : 0x1e67e2] = bytes.fromhex("28 34 00 00".replace(" ", ""))
-print("Applied Plugin Patch 1b: ExteraConfig.loadConfig() bypasses killswitch (preserves plugins on toggle/restart)")
+assert dex1[0x1e99f2 : 0x1e99f4] == bytes.fromhex("0a 01")
+dex1[0x1e99f2 : 0x1e99f4] = bytes.fromhex("12 11") # force pluginsEngine = true
 
-# 2. findModuleNameOwner -> return null immediately (avoids false module collision with sys.modules)
-assert dex1[0x3d9ff4 : 0x3d9ff8] == bytes.fromhex("1a 00 f5 d0".replace(" ", ""))
-dex1[0x3d9ff4 : 0x3d9ff8] = bytes.fromhex("12 00 11 00".replace(" ", ""))
-print("Applied Plugin Patch 2: findModuleNameOwner returns null (prevents false collisions)")
+assert dex1[0x3cbfc4 : 0x3cbfc8] == bytes.fromhex("1a 00 ff d5")
+dex1[0x3cbfc4 : 0x3cbfc8] = bytes.fromhex("12 00 11 00") # findModuleNameOwner returns null
 
-# 3. PythonPluginsEngine.initSdk() -> Ensure getPython() is called before checking this.python
-assert dex1[0x3d8be6 : 0x3d8bf0] == bytes.fromhex("54 f2 1c 10 39 02 03 00 0f 01".replace(" ", ""))
-dex1[0x3d8be6 : 0x3d8bf0] = bytes.fromhex("70 10 5e 37 0f 00 54 f2 1c 10".replace(" ", ""))
-print("Applied Plugin Patch 3: PythonPluginsEngine.initSdk ensures getPython() initializes interpreter")
+assert dex1[0x3cab9e : 0x3cab9e + 10] == bytes.fromhex("54 f2 8e 10 39 02 03 00 0f 01")
+dex1[0x3cab9e : 0x3cab9e + 10] = bytes.fromhex("70 10 60 38 0f 00 54 f2 8e 10") # getPython() init
 
-# 4. PythonPluginsEngine.initSdk() -> Force sdkInitialized = true
-assert dex1[0x3d8f24 : 0x3d8f26] == bytes.fromhex("01 13".replace(" ", ""))
-dex1[0x3d8f24 : 0x3d8f26] = bytes.fromhex("12 13".replace(" ", ""))
-print("Applied Plugin Patch 4: PythonPluginsEngine.initSdk guarantees sdkInitialized = true")
+assert dex1[0x3caedc : 0x3caede] == bytes.fromhex("01 13")
+dex1[0x3caedc : 0x3caede] = bytes.fromhex("12 13") # sdkInitialized = true
 
-# 5. PythonPluginsEngine.initSdk() -> Do not skip requireBasePluginClass in safe mode
-assert dex1[0x3d8fb4 : 0x3d8fb8] == bytes.fromhex("39 00 0d 00".replace(" ", ""))
-dex1[0x3d8fb4 : 0x3d8fb8] = bytes.fromhex("00 00 00 00".replace(" ", ""))
-print("Applied Plugin Patch 5: PythonPluginsEngine.initSdk completes initialization in safe mode")
+assert dex1[0x3cb236 : 0x3cb23a] == bytes.fromhex("39 00 48 00")
+dex1[0x3cb236 : 0x3cb23a] = bytes.fromhex("00 00 00 00") # allow safe mode
 
-# 5b. PythonPluginsEngine.requireBasePluginClass() -> Allow enabling plugins in safe mode
-assert dex1[0x3d927e : 0x3d9282] == bytes.fromhex("39 00 48 00".replace(" ", ""))
-dex1[0x3d927e : 0x3d9282] = bytes.fromhex("00 00 00 00".replace(" ", ""))
-print("Applied Plugin Patch 5b: PythonPluginsEngine.requireBasePluginClass permits enabling plugins in safe mode")
+old_req = bytes.fromhex("22 00 7f 19 1a 01 ff a5 70 20 2b 76 10 00 27 00")
+assert dex1[0x3cb2b6 : 0x3cb2b6 + 16] == old_req
+dex1[0x3cb2b6 : 0x3cb2b6 + 16] = bytes.fromhex("70 10 63 38 03 00 28 bf 00 00 00 00 00 00 00 00") # lazy bootstrap
 
-# 5c. PythonPluginsEngine.requireBasePluginClass() -> Lazy bootstrap SDK on demand instead of throwing Exception
-assert dex1[0x3d92fe : 0x3d930e] == bytes.fromhex("22 00 27 19 1a 01 5f a2 70 20 57 74 10 00 27 00".replace(" ", ""))
-dex1[0x3d92fe : 0x3d930e] = bytes.fromhex("70 10 61 37 03 00 28 c3 00 00 00 00 00 00 00 00".replace(" ", ""))
-print("Applied Plugin Patch 5c: PythonPluginsEngine.requireBasePluginClass lazily initializes SDK on demand")
+old_refresh = bytes.fromhex("1b 03 0f 3b 01 00 6e 20 ae 2e 31 00 0c 03 1f 03 6f 09 38 05 13 00 38 03 11 00 1b 01 b1 3d 01 00 6e 10 1a 75 05 00 0c 05 12 02 24 20 e4 3b 25 00 0c 05 6e 30 ab 2e 13 05")
+assert dex1[0x3cee46 : 0x3cee46 + len(old_refresh)] == old_refresh
+new_refresh = bytes.fromhex("1b 03 03 3b 01 00 6e 20 ae 2e 31 00 0c 03 1f 03 6f 09 38 05 13 00 38 03 11 00 1b 01 52 d6 00 00 6e 10 1a 75 05 00 0c 05 24 10 e4 3b 05 00 0c 05 00 00 6e 30 ab 2e 13 05")
+dex1[0x3cee46 : 0x3cee46 + len(new_refresh)] = new_refresh # append to sys.path
 
-# 6. PythonPluginsEngine.refreshImportCaches() -> Always append plugin parent directory to Python's sys.path
-old_refresh = bytes.fromhex("1b 03 2b 34 01 00 6e 20 91 2e 31 00 0c 03 1f 03 5b 09 38 05 13 00 38 03 11 00 1b 01 8d 36 01 00 6e 10 4b 73 05 00 0c 05 12 02 24 20 86 3a 25 00 0c 05 6e 30 8e 2e 13 05".replace(" ", ""))
-new_refresh = bytes.fromhex("1b 03 1f 34 01 00 6e 20 91 2e 31 00 0c 03 1f 03 5b 09 38 05 13 00 38 03 11 00 1b 01 48 d1 00 00 6e 10 4b 73 05 00 0c 05 24 10 86 3a 05 00 0c 05 00 00 6e 30 8e 2e 13 05".replace(" ", ""))
-assert dex1[0x3dcd36 : 0x3dcd36 + len(old_refresh)] == old_refresh
-dex1[0x3dcd36 : 0x3dcd36 + len(new_refresh)] = new_refresh
-print("Applied Plugin Patch 6: PythonPluginsEngine.refreshImportCaches ensures plugin parent directory is in sys.path")
+assert dex1[0x3cca94 : 0x3cca96] == bytes.fromhex("27 03")
+dex1[0x3cca94 : 0x3cca96] = bytes.fromhex("28 01") # empty map on metadata error
 
-# 7. PythonPluginsEngine.parsePluginMetadata() -> Never re-throw unhandled exception, return empty map gracefully
-assert dex1[0x3daac4 : 0x3daac4 + 2] == bytes.fromhex("27 03".replace(" ", ""))
-dex1[0x3daac4 : 0x3daac4 + 2] = bytes.fromhex("28 01".replace(" ", "")) # goto -> 3daac6 (return-object v0)
-print("Applied Plugin Patch 7: PythonPluginsEngine.parsePluginMetadata returns empty map instead of crashing on error")
+assert dex1[0x3cfd78 : 0x3cfd7c] == bytes.fromhex("54 60 8e 10")
+dex1[0x3cfd78 : 0x3cfd7a] = bytes.fromhex("0e 00") # do not purge SDK modules
+print("Applied PythonPluginsEngine patches 1-8 in classes.dex")
 
-# 8. PythonPluginsEngine.stopAndUnloadSdk() -> Do NOT purge Python C extension SDK modules on shutdown
-old_stop_sdk = bytes.fromhex("1a 00 00 00 70 40 77 37 16 02".replace(" ", ""))
-new_stop_sdk = bytes.fromhex("0e 00 00 00 00 00 00 00 00 00".replace(" ", ""))
-assert dex1[0x3ddb64 : 0x3ddb64 + len(old_stop_sdk)] == old_stop_sdk
-dex1[0x3ddb64 : 0x3ddb64 + len(new_stop_sdk)] = new_stop_sdk
-print("Applied Plugin Patch 8: PythonPluginsEngine.stopAndUnloadSdk preserves SDK modules across toggle cycles")
-
+# Package name replacement in dex1
 old_dir = b"/data/data/" + OLD_PACKAGE.encode("utf-8") + b"/files"
 new_dir = b"/data/data/" + NEW_PACKAGE.encode("utf-8") + b"/files"
 assert dex1.count(old_dir) == 1
 idx_dir = dex1.find(old_dir)
 dex1[idx_dir : idx_dir + len(old_dir)] = new_dir
 
-string_ids_off1 = struct.unpack("<I", dex1[60:64])[0]
-str56764_off = struct.unpack("<I", dex1[string_ids_off1 + 56764*4 : string_ids_off1 + 56765*4])[0]
 expected_old_entry = b"\x13" + OLD_PACKAGE.encode("utf-8") + b"\x00"
 new_entry = b"\x13" + NEW_PACKAGE.encode("utf-8") + b"\x00"
-assert dex1[str56764_off : str56764_off + 21] == expected_old_entry
-dex1[str56764_off : str56764_off + 21] = new_entry
+string_ids_off1 = struct.unpack("<I", dex1[60:64])[0]
+str58093_off = struct.unpack("<I", dex1[string_ids_off1 + 58093*4 : string_ids_off1 + 58094*4])[0]
+assert dex1[str58093_off : str58093_off + 21] == expected_old_entry
+dex1[str58093_off : str58093_off + 21] = new_entry
 
 dex1[12:32] = hashlib.sha1(dex1[32:]).digest()
 dex1[8:12] = struct.pack("<I", zlib.adler32(dex1[12:]) & 0xFFFFFFFF)
+print("classes.dex patched and verified!")
 
 # -------------------------------------------------------------
-# 1.1 Patch classes4.dex: NfGram Hub + Authentic ExteraGram Settings (Photo 3)
+# 2. Patch classes4.dex: GitHub Release Updater Reflection Hook
 # -------------------------------------------------------------
-# We patch string 0xa1f9 ("exteraGram.app" -> "lighthouse_top") for channel username
-# so showNoticeBeforeOpeningChat("lighthouse_top") opens @lighthouse_top
-# String 49344 (0xc0c0): originally 'lightnessEnhancementParam' (25 chars)
-# Replace with 'lighthouse_top           ' (25 chars) - preserves exact length and alphabetical sort!
-off_49344 = 0x7c59a4
-assert dex4[off_49344 : off_49344 + 27] == b"\x19lightnessEnhancementParam\x00"
-dex4[off_49344 : off_49344 + 27] = b"\x19lighthouse_top           \x00"
-print("Patched string 0xc0c0 to lighthouse_top (padded) in classes4.dex")
+# 1. Patch UpdaterUtils.getAppUpdate at 0x43a6ac (18 bytes)
+patch_getAppUpdate = bytearray()
+patch_getAppUpdate.extend(b"\x12\x00") # const/4 v0, 0
+patch_getAppUpdate.extend(b"\x71\x20\x69\x9a\x10\x00") # invoke-static {v0, v1}, method@9a69 (parseUpdateResponse)
+patch_getAppUpdate.extend(b"\x0e\x00") # return-void
+while len(patch_getAppUpdate) < 18:
+    patch_getAppUpdate.extend(b"\x00\x00")
+assert len(patch_getAppUpdate) == 18
+dex4[0x43a6ac : 0x43a6ac + 18] = patch_getAppUpdate
 
-# 1. MainPreferencesActivity.onClick:
-# Layout:
-# - 0x38a624..0x38a630: Dispatch (iget v1, UItem.id; packed-switch v1, table) (12 bytes)
-# - 0x38a630..0x38a642: :open_extera_settings (new-instance MainPreferencesActivity, hasOwnBackground=1, goto :present) (18 bytes)
-# - 0x38a642..0x38a66e: Case 8 (pos_c8 = 0x38a642) (if hasOwnBackground -> exteraForum; else new AyuMainPreferencesActivity; :present_and_ret) (44 bytes)
-# - 0x38a66e..0x38a68e: Case 7 (pos_c7 = 0x38a66e) (trim lighthouse_top; if hasOwnBackground -> exteraGram; showNoticeBeforeOpeningChat) (32 bytes)
-# - 0x38a68e..0x38a692: Padding (4 bytes)
-# - 0x38a692..0x38a6a6: Case 9 (Crowdin, authentic 20 bytes untouched)
-# - 0x38a6a6..0x38a6be: Case 10 (pos_c10 = 0x38a6a6) (if hasOwnBackground == 0 -> goto :open_extera_settings; else open https://exteraGram.app) (24 bytes)
+# 2. Patch UpdaterUtils.parseUpdateResponse at 0x43a984 (648 bytes)
+code_updater = bytearray()
+# 1. new-array v0, 45, [B (type@3706)
+code_updater.extend(b"\x13\x00\x2d\x00") # const/16 v0, 45
+code_updater.extend(b"\x23\x00\x06\x37") # new-array v0, v0, type@3706 ([B)
+code_updater.extend(b"\x26\x00\x00\x00\x00\x00") # fill-array-data v0, rel1
 
-base_switch = 0x38a628
+# 2. new-array v1, 12, [B (type@3706)
+code_updater.extend(b"\x13\x01\x0c\x00") # const/16 v1, 12
+code_updater.extend(b"\x23\x11\x06\x37") # new-array v1, v1, type@3706 ([B)
+code_updater.extend(b"\x26\x01\x00\x00\x00\x00") # fill-array-data v1, rel2
 
-# Dispatch at 0x38a624 (12 bytes)
-sw_rel = (0x38a744 - base_switch) // 2
-dispatch = bytearray()
-dispatch.extend(b"\x52\x11\x7d\x8f") # iget v1, v1, UItem.id (field@8f7d)
-dispatch.extend(b"\x2b\x01" + struct.pack("<i", sw_rel)) # packed-switch v1, table
-dispatch.extend(b"\x0e\x00") # return-void
-assert len(dispatch) == 12
+# 3. new String(v0) -> v2
+code_updater.extend(b"\x22\x02\x86\x31") # new-instance v2, type@3186 (String)
+code_updater.extend(b"\x70\x20\xd5\xed\x02\x00") # invoke-direct {v2, v0}, method@edd5 (String.<init>:([B)V)
 
-# :open_extera_settings at 0x38a630 (18 bytes)
-# Jumps to :present_and_ret in Case 8 (at 0x38a666): (0x38a666 - 0x38a640) // 2 = 19 (0x13)
-open_ext = bytearray()
-open_ext.extend(b"\x22\x01\x9e\x15")         # new-instance v1, MainPreferencesActivity (0x38a630)
-open_ext.extend(b"\x70\x10\xbe\x74\x01\x00") # invoke-direct {v1}, <init> (0x38a634)
-open_ext.extend(b"\x12\x12")                 # const/4 v2, 1 (0x38a63a)
-open_ext.extend(b"\x5c\x12\xba\x8e")         # iput-boolean v2, v1, hasOwnBackground (0x38a63c)
-open_ext.extend(b"\x28\x13")                 # goto +19 -> 0x38a666 (0x38a640)
-assert len(open_ext) == 18
+# 4. Class.forName(v2) -> v0
+code_updater.extend(b"\x71\x10\xfc\xec\x02\x00") # invoke-static {v2}, method@ecfc (Class.forName)
+code_updater.extend(b"\x0c\x00") # move-result-object v0
 
-# Case 8 at 0x38a642 (44 bytes)
-pos_c8 = 0x38a642
-c8 = bytearray()
-c8.extend(b"\x55\x01\xba\x8e") # iget-boolean v1, v0, hasOwnBackground (0x38a642)
-c8.extend(b"\x38\x01\x08\x00") # if-eqz v1, +8 -> :open_ayu_settings (0x38a646)
-c8.extend(b"\x1a\x01\xf6\xa1")         # const-string v1, "exteraForum" (0x38a64a)
-c8.extend(b"\x70\x20\xc6\x74\x10\x00") # invoke-direct {v0, v1}, showNoticeBeforeOpeningChat (0x38a64e)
-c8.extend(b"\x0e\x00")                 # return-void (0x38a654)
-# :open_ayu_settings (at 0x38a656)
-c8.extend(b"\x1c\x01\x01\x35")         # const-class v1, AyuMainPreferencesActivity (0x38a656)
-c8.extend(b"\x6e\x10\x01\xee\x01\x00") # invoke-static {v1}, AyuFragmentUtils.getOrCreateInstance (0x38a65a)
-c8.extend(b"\x0c\x01")                 # move-result-object v1 (0x38a660)
-c8.extend(b"\x1f\x01\x58\x39")         # check-cast v1, BaseFragment (0x38a662)
-# :present_and_ret (at 0x38a666)
-c8.extend(b"\x6e\x20\x09\xf8\x10\x00") # invoke-virtual {v0, v1}, presentFragment (0x38a666)
-c8.extend(b"\x0e\x00")                 # return-void (0x38a66c)
-assert len(c8) == 44
+# 5. new String(v1) -> v2
+code_updater.extend(b"\x22\x02\x86\x31") # new-instance v2, type@3186 (String)
+code_updater.extend(b"\x70\x20\xd5\xed\x12\x00") # invoke-direct {v2, v1}, method@edd5 (String.<init>:([B)V)
 
-# Case 7 at 0x38a66e (32 bytes)
-pos_c7 = 0x38a66e
-c7 = bytearray()
-c7.extend(b"\x1a\x01\xc0\xc0")         # const-string v1, "lighthouse_top           " (string@c0c0) (0x38a66e)
-c7.extend(b"\x6e\x10\xed\xee\x01\x00") # invoke-virtual {v1}, String.trim (method@eeed) (0x38a672)
-c7.extend(b"\x0c\x01")                 # move-result-object v1 (0x38a678)
-c7.extend(b"\x55\x02\xba\x8e")         # iget-boolean v2, v0, hasOwnBackground (0x38a67a)
-c7.extend(b"\x38\x02\x04\x00")         # if-eqz v2, +4 -> :show_chan (0x38a67e)
-c7.extend(b"\x1a\x01\xf7\xa1")         # const-string v1, "exteraGram" (string@a1f7) (0x38a682)
-# :show_chan (at 0x38a686)
-c7.extend(b"\x70\x20\xc6\x74\x10\x00") # invoke-direct {v0, v1}, showNoticeBeforeOpeningChat (0x38a686)
-c7.extend(b"\x0e\x00")                 # return-void (0x38a68c)
-assert len(c7) == 32
+# 6. new-array v3, 1, [Class (type@3909)
+code_updater.extend(b"\x12\x11") # const/4 v1, 1
+code_updater.extend(b"\x23\x13\x09\x39") # new-array v3, v1, type@3909 ([Class)
+code_updater.extend(b"\x1c\x04\x7b\x31") # const-class v4, type@317b (Object)
+code_updater.extend(b"\x12\x01") # const/4 v1, 0
+code_updater.extend(b"\x4d\x04\x03\x01") # aput-object v4, v3, v1 (v1 is 0)
 
-pad = b"\x00\x00\x00\x00"
+# 7. Class.getMethod(v2, v3) -> v0
+code_updater.extend(b"\x6e\x30\x0d\xed\x20\x03") # invoke-virtual {v0, v2, v3}, method@ed0d (Class.getMethod)
+code_updater.extend(b"\x0c\x00") # move-result-object v0
 
-# Case 10 at 0x38a6a6 (24 bytes)
-pos_c10 = 0x38a6a6
-c10 = bytearray()
-c10.extend(b"\x55\x01\xba\x8e") # iget-boolean v1, v0, hasOwnBackground (0x38a6a6)
-rel_ext = (0x38a630 - (pos_c10 + 4)) // 2 # offset to 0x38a630 (:open_extera_settings)
-c10.extend(b"\x38\x01" + struct.pack("<h", rel_ext))
-c10.extend(b"\x6e\x10\xf5\xf7\x00\x00") # invoke-virtual {v0}, getParentActivity (0x38a6ae)
-c10.extend(b"\x0c\x00")                 # move-result-object v0 (0x38a6b4)
-c10.extend(b"\x1a\x01\x68\xb6")         # const-string v1, "https://exteraGram.app" (0x38a6b6)
-rel_url = (0x38a69e - (pos_c10 + 20)) // 2 # goto -> Browser.openUrl in Case 9
-c10.extend(b"\x28" + struct.pack("b", rel_url)) # goto (0x38a6ba)
-c10.extend(b"\x00\x00") # nop pad (0x38a6bc)
-assert len(c10) == 24
+# 8. new-array v2, 1, [Object (type@390f)
+code_updater.extend(b"\x12\x13") # const/4 v3, 1
+code_updater.extend(b"\x23\x32\x0f\x39") # new-array v2, v3, type@390f ([Object)
+code_updater.extend(b"\x4d\x0e\x02\x01") # aput-object v14, v2, v1 (v1 is 0, v14 is incoming callback)
 
-# Write into dex4
-dex4[0x38a624 : 0x38a630] = dispatch
-dex4[0x38a630 : 0x38a642] = open_ext
-dex4[0x38a642 : 0x38a66e] = c8
-dex4[0x38a66e : 0x38a68e] = c7
-dex4[0x38a68e : 0x38a692] = pad
-dex4[0x38a6a6 : 0x38a6be] = c10
+# 9. Method.invoke(null, v2)
+code_updater.extend(b"\x12\x01") # const/4 v1, 0 (null target)
+code_updater.extend(b"\x6e\x30\x86\xee\x10\x02") # invoke-virtual {v0, v1, v2}, method@ee86 (Method.invoke)
+code_updater.extend(b"\x0e\x00") # return-void
 
-# Update switch targets in Switch Table at 0x38a74c:
-targets = [
-    0x38a718, # Key 1: HEADER_CELL
-    0x38a706, # Key 2: GENERAL
-    0x38a6f4, # Key 3: APPEARANCE
-    0x38a6e2, # Key 4: CHATS
-    0x38a6d0, # Key 5: PLUGINS
-    0x38a6be, # Key 6: OTHER
-    pos_c7,   # Key 7: CHANNEL
-    pos_c8,   # Key 8: FORUM
-    0x38a692, # Key 9: CROWDIN
-    pos_c10,  # Key 10: WEBSITE
-]
-for i, t in enumerate(targets):
-    off_val = (t - base_switch) // 2
-    dex4[0x38a74c + i*4 : 0x38a74c + (i+1)*4] = struct.pack("<i", off_val)
-print("Patched MainPreferencesActivity.onClick and switch targets in classes4.dex")
+if len(code_updater) % 4 != 0:
+    code_updater.extend(b"\x00\x00")
 
-# 2. MainPreferencesActivity.fillItems:
-#    - Root mode (hasOwnBackground == false):
-#        1. HeaderSettingsCell title -> "NfGram"
-#        2. Categories header
-#        3. Item 1: exteraGram (WEBSITE, 0x7f080326 scaled paper plane, RED 0xffe83030, text "Preferences" = "РќР°СЃС‚СЂРѕР№РєРё exteraGram")
-#        4. Item 2: AyuGram (FORUM, 0x7f080327 scaled wings, BLUE/PURPLE 0xff9570ff, text "AyuPreferences" = "РќР°СЃС‚СЂРѕР№РєРё AyuGram")
-#        5. Shadow
-#        6. Links header
-#        7. Channel (@lighthouse_top)
-#        8. Shadow
-#    - Submenu mode (hasOwnBackground == true, Photo 3):
-#        1. HeaderSettingsCell (vanilla authentic "exteraGram", red squircle, version)
-#        2. Categories: General, Appearance, Chats, Plugins, Other
-#        3. Shadow
-#        4. Links: Channel, Forum, Crowdin, Website
-#        5. Shadow
-start_fi = 0x38a3d8
-code_fi = bytearray()
-code_fi.extend(b"\x08\x00\x11\x00") # move-object/from16 v0, v17
-code_fi.extend(b"\x08\x01\x10\x00") # move-object/from16 v1, v16
+pos_arr1 = len(code_updater) // 2
+actual_rel1 = pos_arr1 - 4
+code_updater[10:14] = struct.pack("<i", actual_rel1)
 
-# 1. Header:
-code_fi.extend(b"\x54\x12\x90\x3e") # iget-object v2, v1, headerSettingsCell
-code_fi.extend(b"\x55\x13\xba\x8e") # iget-boolean v3, v1, hasOwnBackground
-ph_sub_hdr = len(code_fi)
-code_fi.extend(b"\x39\x03\x00\x00") # if-nez v3, -> :add_header
-ph_null_hdr = len(code_fi)
-code_fi.extend(b"\x38\x02\x00\x00") # if-eqz v2, -> :add_header
-# Title -> 'NfGram'
-code_fi.extend(b"\x54\x23\x56\x40") # iget-object v3, v2, titleTextView
-code_fi.extend(b"\x15\x04\x0f\x7f") # const/high16 v4, 0x7f0f (AppName)
-code_fi.extend(b"\x71\x10\x80\xf5\x04\x00") # invoke-static {v4}, LocaleController.getString
-code_fi.extend(b"\x0c\x04")                 # move-result-object v4
-code_fi.extend(b"\x6e\x20\x38\x09\x43\x00") # invoke-virtual {v3, v4}, TextView.setText
-# Squircle -> Green #ff2ecc71 (for NfGram!)
-code_fi.extend(b"\x54\x23\x53\x40")         # iget-object v3, v2, imageView (field@4053)
-code_fi.extend(b"\x14\x04\x71\xcc\x2e\xff") # const v4, 0xff2ecc71 (green)
-code_fi.extend(b"\x6e\x20\xc0\x07\x43\x00") # invoke-virtual {v3, v4}, View.setBackgroundColor (method@07c0)
+bCls = b"com.radolyn.ayugram.utils.NfGramGithubUpdater"
+arr1 = bytearray(b"\x00\x03\x01\x00" + struct.pack("<I", len(bCls)) + bCls)
+while len(arr1) % 4 != 0:
+    arr1.append(0)
+code_updater.extend(arr1)
 
-# :add_header
-pos_add_hdr = len(code_fi)
-code_fi[ph_sub_hdr + 2 : ph_sub_hdr + 4] = struct.pack('<h', (pos_add_hdr - ph_sub_hdr) // 2)
-code_fi[ph_null_hdr + 2 : ph_null_hdr + 4] = struct.pack('<h', (pos_add_hdr - ph_null_hdr) // 2)
+pos_arr2 = len(code_updater) // 2
+actual_rel2 = pos_arr2 - 11
+code_updater[24:28] = struct.pack("<i", actual_rel2)
 
-code_fi.extend(b"\x13\x03\xc6\x00")         # const/16 v3, 198
-code_fi.extend(b"\x71\x20\xcd\xfa\x32\x00") # invoke-static {v2, v3}, UItem.asCustomShadow
-code_fi.extend(b"\x0c\x02")                 # move-result-object v2
-code_fi.extend(b"\x12\x13")                 # const/4 v3, 1 (HEADER_CELL id)
-code_fi.extend(b"\x6e\x20\xe9\xfa\x32\x00") # invoke-virtual {v2, v3}, UItem.setId
-code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
+bMth = b"checkUpdates"
+arr2 = bytearray(b"\x00\x03\x01\x00" + struct.pack("<I", len(bMth)) + bMth)
+while len(arr2) % 4 != 0:
+    arr2.append(0)
+code_updater.extend(arr2)
 
-# 2. Categories Header:
-code_fi.extend(b"\x60\x02\x50\x8a")         # sget v2, R.string.Categories
-code_fi.extend(b"\x71\x10\x80\xf5\x02\x00") # invoke-static {v2}, LocaleController.getString
-code_fi.extend(b"\x0c\x02")                 # move-result-object v2
-code_fi.extend(b"\x71\x10\xd1\xfa\x02\x00") # invoke-static {v2}, UItem.asHeader
-code_fi.extend(b"\x0c\x02")                 # move-result-object v2
-code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
-
-# 3. Branch on hasOwnBackground for categories:
-code_fi.extend(b"\x55\x12\xba\x8e") # iget-boolean v2, v1, hasOwnBackground
-ph_sub_cat = len(code_fi)
-code_fi.extend(b"\x39\x02\x00\x00") # if-nez v2, -> :sub_categories
-
-# --- ROOT CATEGORIES (UItem.asButton method@fac1: id, icon, text) ---
-# Item 1: exteraGram
-code_fi.extend(b"\x13\x02\x0a\x00")         # const/16 v2, 10 (WEBSITE id)
-code_fi.extend(b"\x14\x04\x26\x03\x08\x7f") # const v4, 0x7f080326 (plane)
-code_fi.extend(b"\x14\x03\x24\xde\x0f\x7f") # const v3, 0x7f0fde24 (Preferences)
-code_fi.extend(b"\x71\x10\x80\xf5\x03\x00") # invoke-static {v3}, LocaleController.getString
-code_fi.extend(b"\x0c\x03")                 # move-result-object v3
-code_fi.extend(b"\x71\x30\xc1\xfa\x42\x03") # invoke-static {v2, v4, v3}, UItem.asButton (method@fac1)
-code_fi.extend(b"\x0c\x02")                 # move-result-object v2
-code_fi.extend(b"\x14\x03\x30\x30\xe8\xff") # const v3, 0xffe83030 (red)
-code_fi.extend(b"\x6e\x30\xe6\xfa\x42\x03") # invoke-virtual {v2, v4, v3}, UItem.setColorfulIcon (method@fae6)
-code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
-
-# Item 2: AyuGram
-code_fi.extend(b"\x13\x02\x08\x00")         # const/16 v2, 8 (FORUM id)
-code_fi.extend(b"\x14\x04\x27\x03\x08\x7f") # const v4, 0x7f080327 (wings)
-code_fi.extend(b"\x14\x03\xa3\xfa\x0f\x7f") # const v3, 0x7f0ffaa3 (AyuPreferences)
-code_fi.extend(b"\x71\x10\x80\xf5\x03\x00") # invoke-static {v3}, LocaleController.getString
-code_fi.extend(b"\x0c\x03")                 # move-result-object v3
-code_fi.extend(b"\x71\x30\xc1\xfa\x42\x03") # invoke-static {v2, v4, v3}, UItem.asButton (method@fac1)
-code_fi.extend(b"\x0c\x02")                 # move-result-object v2
-code_fi.extend(b"\x14\x03\xff\x70\x95\xff") # const v3, 0xff9570ff (blue/purple)
-code_fi.extend(b"\x6e\x30\xe6\xfa\x42\x03") # invoke-virtual {v2, v4, v3}, UItem.setColorfulIcon (method@fae6)
-code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
-
-ph_after_cat = len(code_fi)
-code_fi.extend(b"\x28\x00") # goto -> :after_categories
-
-# --- SUBMENU CATEGORIES (Compact Loop: id v2 = 2..6) ---
-pos_sub_cat = len(code_fi)
-code_fi[ph_sub_cat + 2 : ph_sub_cat + 4] = struct.pack('<h', (pos_sub_cat - ph_sub_cat) // 2)
-
-code_fi.extend(b"\x12\x22") # const/4 v2, 2
-
-pos_loop = len(code_fi)
-# switch on v2 (2: General, 3: Appearance, 4: Chats, 5: Plugins, 6: Other)
-code_fi.extend(b"\x12\x27") # const/4 v7, 2
-ph_is2 = len(code_fi)
-code_fi.extend(b"\x32\x72\x00\x00") # if-eq v2, v7, :is_2
-code_fi.extend(b"\x12\x37") # const/4 v7, 3
-ph_is3 = len(code_fi)
-code_fi.extend(b"\x32\x72\x00\x00") # if-eq v2, v7, :is_3
-code_fi.extend(b"\x12\x47") # const/4 v7, 4
-ph_is4 = len(code_fi)
-code_fi.extend(b"\x32\x72\x00\x00") # if-eq v2, v7, :is_4
-code_fi.extend(b"\x12\x57") # const/4 v7, 5
-ph_is5 = len(code_fi)
-code_fi.extend(b"\x32\x72\x00\x00") # if-eq v2, v7, :is_5
-
-# else is 6 (Other)
-code_fi.extend(b"\x60\x04\x58\x89") # sget v4, msg_fave (field@8958)
-code_fi.extend(b"\x60\x03\x34\x8b") # sget v3, LocalOther (field@8b34)
-ph_goto_add = len(code_fi)
-code_fi.extend(b"\x28\x00")
-
-# :is_2 (General)
-pos_is2 = len(code_fi)
-code_fi[ph_is2 + 2 : ph_is2 + 4] = struct.pack('<h', (pos_is2 - ph_is2) // 2)
-code_fi.extend(b"\x60\x04\x6b\x89") # sget v4, msg_media (field@896b)
-code_fi.extend(b"\x60\x03\xed\x8a") # sget v3, General (field@8aed)
-ph_goto2 = len(code_fi)
-code_fi.extend(b"\x28\x00")
-
-# :is_3 (Appearance)
-pos_is3 = len(code_fi)
-code_fi[ph_is3 + 2 : ph_is3 + 4] = struct.pack('<h', (pos_is3 - ph_is3) // 2)
-code_fi.extend(b"\x60\x04\x90\x89") # sget v4, msg_theme (field@8990)
-code_fi.extend(b"\x60\x03\x23\x8a") # sget v3, Appearance (field@8a23) ("Р’РЅРµС€РЅРёР№ РІРёРґ")
-ph_goto3 = len(code_fi)
-code_fi.extend(b"\x28\x00")
-
-# :is_4 (Chats)
-pos_is4 = len(code_fi)
-code_fi[ph_is4 + 2 : ph_is4 + 4] = struct.pack('<h', (pos_is4 - ph_is4) // 2)
-code_fi.extend(b"\x60\x04\x54\x89") # sget v4, msg_discussion (field@8954)
-code_fi.extend(b"\x60\x03\xf7\x8b") # sget v3, SearchAllChatsShort (field@8bf7)
-ph_goto4 = len(code_fi)
-code_fi.extend(b"\x28\x00")
-
-# :is_5 (Plugins)
-pos_is5 = len(code_fi)
-code_fi[ph_is5 + 2 : ph_is5 + 4] = struct.pack('<h', (pos_is5 - ph_is5) // 2)
-code_fi.extend(b"\x60\x04\x78\x89") # sget v4, msg_plugins (field@8978)
-code_fi.extend(b"\x60\x03\x9b\x8b") # sget v3, Plugins (field@8b9b)
-
-# :add_button
-pos_add = len(code_fi)
-code_fi[ph_goto_add + 1] = (pos_add - ph_goto_add) // 2
-code_fi[ph_goto2 + 1] = (pos_add - ph_goto2) // 2
-code_fi[ph_goto3 + 1] = (pos_add - ph_goto3) // 2
-code_fi[ph_goto4 + 1] = (pos_add - ph_goto4) // 2
-
-code_fi.extend(b"\x71\x10\x80\xf5\x03\x00") # invoke-static {v3}, LocaleController.getString
-code_fi.extend(b"\x0c\x03")                 # move-result-object v3
-code_fi.extend(b"\x71\x30\xc1\xfa\x42\x03") # invoke-static {v2, v4, v3}, UItem.asButton
-code_fi.extend(b"\x0c\x03")                 # move-result-object v3
-code_fi.extend(b"\x6e\x20\x55\xf0\x30\x00") # invoke-virtual {v0, v3}, ArrayList.add
-code_fi.extend(b"\xd8\x02\x02\x01")         # add-int/lit8 v2, v2, 1
-code_fi.extend(b"\x12\x77")                 # const/4 v7, 7
-code_fi.extend(b"\x34\x72" + struct.pack('<h', (pos_loop - len(code_fi)) // 2)) # if-lt v2, v7, :loop
-
-# :after_categories (Shared Shadow)
-pos_after_cat = len(code_fi)
-code_fi[ph_after_cat + 1] = (pos_after_cat - ph_after_cat) // 2
-
-code_fi.extend(b"\x71\x00\xd8\xfa\x00\x00") # invoke-static {}, UItem.asShadow
-code_fi.extend(b"\x0c\x02")                 # move-result-object v2
-code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
-
-# Shared Links Header:
-code_fi.extend(b"\x60\x02\x2f\x8b")         # sget v2, R.string.Links
-code_fi.extend(b"\x71\x10\x80\xf5\x02\x00") # invoke-static {v2}, LocaleController.getString
-code_fi.extend(b"\x0c\x02")                 # move-result-object v2
-code_fi.extend(b"\x71\x10\xd1\xfa\x02\x00") # invoke-static {v2}, UItem.asHeader
-code_fi.extend(b"\x0c\x02")                 # move-result-object v2
-code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
-
-# --- SHARED CHANNEL ITEM ---
-code_fi.extend(b"\x13\x02\x07\x00")         # const/16 v2, 7 (CHANNEL id)
-code_fi.extend(b"\x60\x04\x4b\x89")         # sget v4, msg_channel
-code_fi.extend(b"\x60\x03\xc4\x8b")         # sget v3, ProfileChannel
-code_fi.extend(b"\x71\x10\x80\xf5\x03\x00") # invoke-static {v3}, LocaleController.getString
-code_fi.extend(b"\x0c\x03")                 # move-result-object v3
-code_fi.extend(b"\x55\x15\xba\x8e")         # iget-boolean v5, v1, hasOwnBackground
-ph_sub_chan = len(code_fi)
-code_fi.extend(b"\x39\x05\x00\x00")         # if-nez v5, -> :sub_chan_text
-# Root channel text:
-code_fi.extend(b"\x1a\x05\xc0\xc0")         # const-string v5, 'lighthouse_top           '
-code_fi.extend(b"\x6e\x10\xed\xee\x05\x00") # invoke-virtual {v5}, String.trim
-code_fi.extend(b"\x0c\x05")                 # move-result-object v5
-ph_goto_add_chan = len(code_fi)
-code_fi.extend(b"\x28\x00")                 # goto -> :add_chan
-# :sub_chan_text
-pos_sub_chan = len(code_fi)
-code_fi[ph_sub_chan + 2 : ph_sub_chan + 4] = struct.pack('<h', (pos_sub_chan - ph_sub_chan) // 2)
-code_fi.extend(b"\x1a\x05\xf7\xa1")         # const-string v5, 'exteraGram'
-# :add_chan
-pos_add_chan = len(code_fi)
-code_fi[ph_goto_add_chan + 1] = (pos_add_chan - ph_goto_add_chan) // 2
-
-code_fi.extend(b"\x71\x40\xc2\xfa\x42\x53") # invoke-static {v2, v4, v3, v5}, UItem.asButton (method@fac2)
-code_fi.extend(b"\x0c\x02")                 # move-result-object v2
-code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
-
-# If Root mode, jump straight to final shadow!
-code_fi.extend(b"\x55\x12\xba\x8e")         # iget-boolean v2, v1, hasOwnBackground
-ph_to_shadow = len(code_fi)
-code_fi.extend(b"\x38\x02\x00\x00")         # if-eqz v2, -> :final_shadow
-
-# --- SUBMENU REMAINING LINKS ---
-# Sub Link 2: Forum (@exteraForum) (id=8)
-code_fi.extend(b"\x13\x02\x08\x00")         # const/16 v2, 8
-code_fi.extend(b"\x60\x04\x60\x89")         # sget v4, msg_groups (field@8960)
-code_fi.extend(b"\x60\x03\xf7\x8b")         # sget v3, SearchAllChatsShort (field@8bf7) ("Р§Р°С‚С‹")
-code_fi.extend(b"\x71\x10\x80\xf5\x03\x00") # invoke-static {v3}, LocaleController.getString
-code_fi.extend(b"\x0c\x03")                 # move-result-object v3
-code_fi.extend(b"\x1a\x05\xf6\xa1")         # const-string v5, 'exteraForum'
-code_fi.extend(b"\x71\x40\xc2\xfa\x42\x53") # invoke-static {v2, v4, v3, v5}, UItem.asButton (method@fac2)
-code_fi.extend(b"\x0c\x02")                 # move-result-object v2
-code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
-
-# Sub Link 3: Crowdin (id=9)
-code_fi.extend(b"\x13\x02\x09\x00")         # const/16 v2, 9
-code_fi.extend(b"\x60\x04\x92\x89")         # sget v4, msg_translate
-code_fi.extend(b"\x60\x03\x71\x8a")         # sget v3, Crowdin
-code_fi.extend(b"\x71\x10\x80\xf5\x03\x00") # invoke-static {v3}, LocaleController.getString
-code_fi.extend(b"\x0c\x03")                 # move-result-object v3
-code_fi.extend(b"\x1a\x05\xa5\x1e")         # const-string v5, 'Crowdin'
-code_fi.extend(b"\x71\x40\xc2\xfa\x42\x53") # invoke-static {v2, v4, v3, v5}, UItem.asButton (method@fac2)
-code_fi.extend(b"\x0c\x02")                 # move-result-object v2
-code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
-
-# Sub Link 4: Website (id=10)
-code_fi.extend(b"\x13\x02\x0a\x00")         # const/16 v2, 10
-code_fi.extend(b"\x60\x04\x63\x89")         # sget v4, msg_language
-code_fi.extend(b"\x60\x03\x81\x8c")         # sget v3, Website
-code_fi.extend(b"\x71\x10\x80\xf5\x03\x00") # invoke-static {v3}, LocaleController.getString
-code_fi.extend(b"\x0c\x03")                 # move-result-object v3
-code_fi.extend(b"\x1a\x05\x00\xa2")         # const-string v5, 'exteragram.app'
-code_fi.extend(b"\x71\x40\xc2\xfa\x42\x53") # invoke-static {v2, v4, v3, v5}, UItem.asButton (method@fac2)
-code_fi.extend(b"\x0c\x02")                 # move-result-object v2
-code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
-
-# :final_shadow
-pos_final_shadow = len(code_fi)
-code_fi[ph_to_shadow + 2 : ph_to_shadow + 4] = struct.pack('<h', (pos_final_shadow - ph_to_shadow) // 2)
-
-code_fi.extend(b"\x71\x00\xd8\xfa\x00\x00") # invoke-static {}, UItem.asShadow
-code_fi.extend(b"\x0c\x02")                 # move-result-object v2
-code_fi.extend(b"\x6e\x20\x55\xf0\x20\x00") # invoke-virtual {v0, v2}, ArrayList.add
-code_fi.extend(b"\x0e\x00")                 # return-void
-
-print(f"Total fillItems bytecode len: {len(code_fi)} bytes (limit: 572)")
-assert len(code_fi) <= 572
-while len(code_fi) < 572:
-    code_fi.extend(b"\x00\x00")
-assert len(code_fi) == 572
-
-dex4[start_fi : start_fi + 572] = code_fi
-print("Patched MainPreferencesActivity.fillItems (Root NfGram hub + 100% complete Photo 3 exteraGram) in classes4.dex")
+assert len(code_updater) <= 648
+while len(code_updater) < 648:
+    code_updater.extend(b"\x00\x00")
+dex4[0x43a984 : 0x43a984 + 648] = code_updater
 
 dex4[12:32] = hashlib.sha1(dex4[32:]).digest()
 dex4[8:12] = struct.pack("<I", zlib.adler32(dex4[12:]) & 0xFFFFFFFF)
+print("classes4.dex patched with GitHub release updater hook and verified!")
 
 # -------------------------------------------------------------
-# 2. Patch classes5.dex: package name
+# 3. Patch classes7.dex: SettingsActivity green NfGram button
 # -------------------------------------------------------------
-string_ids_off5 = struct.unpack("<I", dex5[60:64])[0]
-str41733_off = struct.unpack("<I", dex5[string_ids_off5 + 41733*4 : string_ids_off5 + 41734*4])[0]
-assert dex5[str41733_off : str41733_off + 21] == expected_old_entry
-dex5[str41733_off : str41733_off + 21] = new_entry
-
-dex5[12:32] = hashlib.sha1(dex5[32:]).digest()
-dex5[8:12] = struct.pack("<I", zlib.adler32(dex5[12:]) & 0xFFFFFFFF)
-
-# -------------------------------------------------------------
-# 3. Patch classes6.dex: ProfileActivity row count + SettingsActivity single green button
-#    NOTE: PasscodeActivity is NOT patched at all! All Face ID code removed, 100% vanilla!
-# -------------------------------------------------------------
-# 3.1 ProfileActivity.updateRows: unify to 1 row
-assert dex6[0x5e607c] == 8
-dex6[0x5e607c] = 7
-
-orig_rows = bytes.fromhex("d8 07 04 02 59 06 3c 9a d8 06 04 03 59 07 df 99 d8 07 04 04 59 06 10 9a d8 06 04 05 59 07 dd 9a d8 07 04 06 59 06 a8 9a d8 06 04 07 59 07 26 9a")
-new_rows  = bytes.fromhex("12 f7 59 06 3c 9a 59 07 df 99 d8 06 04 02 59 06 10 9a d8 07 04 03 59 07 dd 9a d8 06 04 04 59 06 a8 9a d8 07 04 05 59 07 26 9a d8 06 04 06 00 00")
-assert dex6[0x5e625e : 0x5e625e + len(orig_rows)] == orig_rows
-dex6[0x5e625e : 0x5e625e + len(orig_rows)] = new_rows
-print("Applied ProfileActivity unified settings row patch in classes6.dex")
-
-# 3.2 SettingsActivity.fillItems:
-patch_settings_btn = bytearray()
-patch_settings_btn.extend(b"\x15\x03\x0f\x7f")         # const/high16 v3, 0x7f0f (AppName = "NfGram")
-patch_settings_btn.extend(b"\x71\x10\x70\x0f\x03\x00") # invoke-static {v3}, LocaleController.getString
-patch_settings_btn.extend(b"\x0c\x03")                 # move-result-object v3
-patch_settings_btn.extend(b"\x12\xf5")                 # const/4 v5, -1
-patch_settings_btn.extend(b"\x14\x06\x71\xcc\x2e\xff") # const v6, 0xff2ecc71 (GREEN!)
-patch_settings_btn.extend(b"\x71\x53\xd6\xe6\x65\x26") # invoke-static {v5, v6, v6, v2, v3}, SettingCell$Factory.of
-patch_settings_btn.extend(b"\x0c\x02")                 # move-result-object v2
-patch_settings_btn.extend(b"\x6e\x20\xc0\x0a\x21\x00") # invoke-virtual {v1, v2}, ArrayList.add
+# SettingsActivity.fillItems: Row 1 emerald green #ff2ecc71 button with "NfGram" title
+patch_settings_btn = bytes.fromhex("15 03 0f 7f 71 10 0e 10 03 00 0c 03 12 f5 14 06 71 cc 2e ff 71 53 d0 d9 65 26 0c 02 6e 20 36 0b 21 00".replace(" ", ""))
 assert len(patch_settings_btn) == 34
+assert dex7[0x5df8d2 : 0x5df8d2 + 34] == bytes.fromhex("60 03 2d 14 71 10 0e 10 03 00 0c 03 12 f5 14 06 30 30 e8 ff 71 53 d0 d9 65 26 0c 02 6e 20 36 0b 21 00".replace(" ", ""))
+dex7[0x5df8d2 : 0x5df8d2 + 34] = patch_settings_btn
+print("Applied SettingsActivity emerald green NfGram button in classes7.dex")
 
-assert dex6[0x62e4e2 : 0x62e4e2 + 34] == bytes.fromhex("60 03 51 11 71 10 70 0f 03 00 0c 03 12 f5 14 06 30 30 e8 ff 71 53 d6 e6 65 26 0c 02 6e 20 c0 0a 21 00")
-dex6[0x62e4e2 : 0x62e4e2 + 34] = patch_settings_btn
+dex7[12:32] = hashlib.sha1(dex7[32:]).digest()
+dex7[8:12] = struct.pack("<I", zlib.adler32(dex7[12:]) & 0xFFFFFFFF)
 
-# NOP out row 2 (AyuGram button, 38 bytes at 0x62e504)
-orig_ayu_row = bytes.fromhex("60 02 8a 04 60 03 b7 08 71 10 70 0f 03 00 0c 03 12 e5 14 06 ff 70 95 ff 71 53 d6 e6 65 26 0c 02 6e 20 c0 0a 21 00")
-assert dex6[0x62e504 : 0x62e504 + len(orig_ayu_row)] == orig_ayu_row
-dex6[0x62e504 : 0x62e504 + len(orig_ayu_row)] = b"\x00" * len(orig_ayu_row) # 19 NOPs
-print("Applied SettingsActivity single green button patch in classes6.dex")
-
-dex6[12:32] = hashlib.sha1(dex6[32:]).digest()
-dex6[8:12] = struct.pack("<I", zlib.adler32(dex6[12:]) & 0xFFFFFFFF)
-
-# -------------------------------------------------------------
-# Verify all DEX files using dexdump -c
-# -------------------------------------------------------------
-for name, dex_data in [("classes.dex", dex1), ("classes4.dex", dex4), ("classes5.dex", dex5), ("classes6.dex", dex6), ("classes7.dex", dex7)]:
+# Verify patched DEX files
+for name, dex_data in [("classes.dex", dex1), ("classes4.dex", dex4), ("classes7.dex", dex7)]:
     tmp_path = f"tmp_{name}"
     with open(tmp_path, "wb") as f: f.write(dex_data)
     res = subprocess.run([DEXDUMP, "-c", tmp_path], capture_output=True, text=True)
@@ -683,15 +327,15 @@ print("=== STEP 2: Patch AndroidManifest.xml ===")
 old_pkg_u16 = OLD_PACKAGE.encode("utf-16le")
 new_pkg_u16 = NEW_PACKAGE.encode("utf-16le")
 manifest_count = manifest.count(old_pkg_u16)
-assert manifest_count == 12
+assert manifest_count == 13
 manifest = manifest.replace(old_pkg_u16, new_pkg_u16)
 
-# Bump versionCode from 71129 to 71161
-old_vc = struct.pack("<I", 71129)
-new_vc = struct.pack("<I", 71161)
+# Bump versionCode from 72379 to 72381
+old_vc = struct.pack("<I", 72379)
+new_vc = struct.pack("<I", 72381)
 assert manifest.count(old_vc) == 1
 manifest = manifest.replace(old_vc, new_vc)
-print("Bumped versionCode to 71161 in AndroidManifest.xml")
+print("Bumped versionCode to 72381 in AndroidManifest.xml")
 
 print("=== STEP 3: Patch resources.arsc ===")
 arsc_pkg_count = arsc.count(old_pkg_u16)
@@ -741,12 +385,13 @@ def make_entry(text):
     return bytes(res)
 
 replacements = {
-    8559: "NfGram",
-    8560: "Смена чёлки Nfgram",
-    8563: "NfGram Preferences",
-    9497: "NfGram",
-    9593: "Update NfGram",
-    9635: "Welcome to the NfGram Desktop. Make Telegram your own.",
+    8873: "NfGram",
+    8874: "Смена чёлки Nfgram",
+    8877: "NfGram Preferences",
+    10096: "Update NfGram",
+    10146: "Welcome to the NfGram Desktop. Make Telegram your own.",
+    10237: "NfGram",
+    10238: "Настройки NfGram",
 }
 
 for idx, rep in replacements.items():
@@ -850,7 +495,7 @@ plane_color_new = bytes.fromhex("08 00 00 1d ff ff ff ff") # pure white
 
 twu_patched = twu_raw.replace(bg_color_old, bg_color_new).replace(plane_color_old, plane_color_new)
 fa_old = bytes.fromhex("08 00 00 04 00 00 00 00")
-fa_new = bytes.fromhex("08 00 00 04 00 00 80 3f") # float 1.0 for static fallback
+fa_new = bytes.fromhex("08 00 00 04 00 00 80 3f")
 twu_static = twu_patched.replace(fa_old, fa_new)
 
 icon_replacements["res/Twu.xml"] = bytes(twu_patched)
@@ -873,7 +518,7 @@ with zipfile.ZipFile(VANILLA_APK, "r") as zin:
         xml_replacements[xml_path] = new_text.encode("utf-8")
 
 print("=== STEP 6: Repack APK ===")
-unaligned_apk = "nfgram_unaligned.apk"
+unaligned_apk = os.path.join(BASE_DIR, "Tools", "nfgram_unaligned.apk")
 if os.path.exists(unaligned_apk):
     os.remove(unaligned_apk)
 
@@ -885,10 +530,6 @@ with zipfile.ZipFile(VANILLA_APK, "r") as zin, zipfile.ZipFile(unaligned_apk, "w
             zout.writestr(item, dex1)
         elif item.filename == "classes4.dex":
             zout.writestr(item, dex4)
-        elif item.filename == "classes5.dex":
-            zout.writestr(item, dex5)
-        elif item.filename == "classes6.dex":
-            zout.writestr(item, dex6)
         elif item.filename == "classes7.dex":
             zout.writestr(item, dex7)
         elif item.filename == "AndroidManifest.xml":
@@ -901,30 +542,34 @@ with zipfile.ZipFile(VANILLA_APK, "r") as zin, zipfile.ZipFile(unaligned_apk, "w
             zout.writestr(item, xml_replacements[item.filename])
         elif item.filename == "lib/arm64-v8a/libtmessages.49.so":
             so_data = bytearray(zin.read(item.filename))
-            assert so_data[0x11174d8 : 0x11174d8 + 8] == bytes.fromhex("ff 83 05 d1 fd 7b 11 a9")
-            so_data[0x11174d8 : 0x11174d8 + 8] = bytes.fromhex("e0 03 1f 2a c0 03 5f d6")
-            assert so_data[0x11f0728 : 0x11f0728 + 8] == bytes.fromhex("29 10 40 f9 e8 03 1f 2a")
-            so_data[0x11f0728 : 0x11f0728 + 8] = bytes.fromhex("e0 03 1f 2a c0 03 5f d6")
-            assert so_data[0x531024 : 0x531028] == bytes.fromhex("ff c3 01 d1")
-            so_data[0x531024 : 0x531028] = bytes.fromhex("c0 03 5f d6") # ret
+            assert so_data[0x62f3ec : 0x62f3ec + 4] == bytes.fromhex("ff c3 01 d1")
+            so_data[0x62f3ec : 0x62f3ec + 4] = bytes.fromhex("c0 03 5f d6") # ret
+            assert so_data[0x1375fb0 : 0x1375fb0 + 8] == bytes.fromhex("ff 83 05 d1 fd 7b 11 a9")
+            so_data[0x1375fb0 : 0x1375fb0 + 8] = bytes.fromhex("e0 03 1f 2a c0 03 5f d6") # mov w0, wzr; ret
+            assert so_data[0x1445e04 : 0x1445e04 + 8] == bytes.fromhex("09 01 09 aa e8 03 1f 2a")
+            so_data[0x1445e04 : 0x1445e04 + 8] = bytes.fromhex("e0 03 1f 2a c0 03 5f d6") # mov w0, wzr; ret
             zout.writestr(item, so_data, compress_type=item.compress_type)
-            print("Patched lib/arm64-v8a/libtmessages.49.so: LSPlant hooks & NativeCrashHandler neutralized (fixed ART SIGSEGV crash)")
+            print("Patched lib/arm64-v8a/libtmessages.49.so: LSPlant hooks & NativeCrashHandler neutralized")
         elif item.filename == "lib/armeabi-v7a/libtmessages.49.so":
             so_data = bytearray(zin.read(item.filename))
-            assert so_data[0xe4bd50 : 0xe4bd50 + 4] == bytes.fromhex("f0 b5 03 af")
-            so_data[0xe4bd50 : 0xe4bd50 + 4] = bytes.fromhex("00 20 70 47")
-            assert so_data[0x2a5b8c : 0x2a5b90] == bytes.fromhex("f0 4f 2d e9")
-            so_data[0x2a5b8c : 0x2a5b90] = bytes.fromhex("1e ff 2f e1") # bx lr
+            assert so_data[0x322fa0 : 0x322fa0 + 4] == bytes.fromhex("f0 4f 2d e9")
+            so_data[0x322fa0 : 0x322fa0 + 4] = bytes.fromhex("1e ff 2f e1") # bx lr
+            assert so_data[0x9c2ec8 : 0x9c2ec8 + 4] == bytes.fromhex("f0 b5 03 af")
+            so_data[0x9c2ec8 : 0x9c2ec8 + 4] = bytes.fromhex("00 20 70 47") # movs r0, #0; bx lr
             zout.writestr(item, so_data, compress_type=item.compress_type)
             print("Patched lib/armeabi-v7a/libtmessages.49.so: LSPlant hooks & NativeCrashHandler neutralized")
         else:
             data = zin.read(item.filename)
             zout.writestr(item, data, compress_type=item.compress_type)
 
+    # Inject classes9.dex for NfGramGithubUpdater
+    zout.writestr("classes9.dex", dex9)
+    print("Injected classes9.dex (NfGramGithubUpdater) into APK root")
+
 print(f"Created unaligned APK: {unaligned_apk} ({os.path.getsize(unaligned_apk)} bytes)")
 
 print("=== STEP 7: Zipalign APK ===")
-aligned_apk = "nfgram_aligned.apk"
+aligned_apk = os.path.join(BASE_DIR, "Tools", "nfgram_aligned.apk")
 if os.path.exists(aligned_apk):
     os.remove(aligned_apk)
 
@@ -968,8 +613,6 @@ destinations = [
     OUTPUT_APK_PROJECT,
     OUTPUT_APK_DESKTOP,
     OUTPUT_APK_NFGRAM,
-    r"c:\Users\styuk\Downloads\AyuGram Desktop\AyuGram-12.10.6-universal.apk",
-    r"c:\Users\styuk\Downloads\NfGram-12.10.6-universal.apk",
 ]
 for dst in destinations:
     try:
@@ -979,15 +622,5 @@ for dst in destinations:
             print(f"Deployed: {dst}")
     except Exception as e:
         print(f"Warning deploying to {dst}: {e}")
-
-# Auto-install via adb if device is connected
-try:
-    p_dev = subprocess.run(["adb", "devices"], capture_output=True, text=True)
-    if "device\n" in p_dev.stdout or "\tdevice" in p_dev.stdout:
-        print("=== STEP 11: Auto-installing APK to connected Android device ===")
-        res_inst = subprocess.run(["adb", "install", "-r", aligned_apk], capture_output=True, text=True)
-        print("ADB Install result:", res_inst.stdout.strip())
-except Exception as e:
-    print("ADB auto-install skipped:", e)
 
 print("ALL DONE! BUILD COMPLETED 100% SUCCESSFULLY!")
