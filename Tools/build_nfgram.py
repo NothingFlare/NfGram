@@ -6,14 +6,6 @@
  */
 """
 
-"""
-/*
- * Copyright (C) 2026 NothingFlare 
- *
- * Licensed under GNU GPLv3.
- */
-"""
-
 import zipfile
 import zlib
 import hashlib
@@ -77,15 +69,19 @@ print("Applied Proximity and Ear sensor anti-accidental trigger patch in classes
 
 # Thermal and Overheating Protection:
 # 3. Disable KeepAliveJob.startJob (JobScheduler 0ms deadline churn that causes background wakeups)
-assert dex1[0x4f74a4 : 0x4f74a8] == bytes.fromhex('62 00 e6 81')
-dex1[0x4f74a4 : 0x4f74a8] = bytes.fromhex('0e 00 00 00')
+assert dex1[0x4f74a4 : 0x4f74ba] == bytes.fromhex("62 00 e6 81 22 01 e8 22 70 10 20 b5 01 00 6e 20 da ad 10 00 0e 00".replace(" ", ""))
+dex1[0x4f74a4 : 0x4f74ba] = bytes.fromhex("0e 00".replace(" ", "")) + b"\x00" * 20
 print("Applied KeepAliveJob thermal wakeup suppression patch in classes.dex")
 
 # 4. Cap DevicePerformanceClass to PERFORMANCE_CLASS_AVERAGE in SharedConfig.measureDevicePerformanceClass
 # Prevents GPU driver hangs, surface frame timeouts, and thermal throttling crashes during charging
 assert dex1[0x334778 : 0x33477c] == bytes.fromhex('60 00 93 00')
 dex1[0x334778 : 0x33477c] = bytes.fromhex('12 10 0f 00')
-print("Applied Thermal and Overheating protection patch in classes.dex")
+# 4b. Cap SharedConfig.getDevicePerformanceClass unconditionally to PERFORMANCE_CLASS_AVERAGE (1)
+# Ensures even if preferences previously cached PERFORMANCE_CLASS_HIGH, the app will never enable high-load shaders that crash Mali GPUs
+assert dex1[0x333c58 : 0x333c58 + 26] == bytes.fromhex("60 00 d6 7f 33 10 08 00 71 00 6f d4 00 00 0a 00 67 00 d6 7f 60 00 d6 7f 0f 00".replace(" ", ""))
+dex1[0x333c58 : 0x333c58 + 26] = bytes.fromhex("12 10 0f 00".replace(" ", "")) + b"\x00" * 22
+print("Applied Thermal and Overheating protection patch in classes.dex (capped getDevicePerformanceClass to AVERAGE)")
 
 # Battery Patch 1: Disable persistent file logging to disk (BuildVars.LOGS_ENABLED = false)
 assert dex1[0x2905f4 : 0x2905f4 + 12] == bytes.fromhex("71 00 12 2f 00 00 0a 00 6a 00 35 2e".replace(" ", ""))
@@ -106,7 +102,16 @@ print("Applied Battery patch 2: SharedConfig sensor polling & blur defaults disa
 # Battery Patch 3: Force disable real-time compute blur shaders (SharedConfig.useNewBlur = false)
 assert dex1[0x3345c6 : 0x3345cc] == bytes.fromhex("0a 02 6a 02 46 80".replace(" ", ""))
 dex1[0x3345c6 : 0x3345cc] = bytes.fromhex("12 02 6a 02 46 80".replace(" ", ""))
-print("Applied Battery patch 3: useNewBlur disabled")
+
+# Force disable photoViewerBlur in SharedConfig.loadConfig()
+# Prevents PhotoViewer compute shader allocations from crashing on high-resolution images
+assert dex1[0x33463c : 0x33463c + 6] == bytes.fromhex("0a 02 6a 02 11 80".replace(" ", ""))
+dex1[0x33463c : 0x33463c + 6] = bytes.fromhex("12 02 6a 02 11 80".replace(" ", ""))
+
+# Force disable drawActionBarShadow in SharedConfig.loadConfig()
+assert dex1[0x334730 : 0x334730 + 6] == bytes.fromhex("0a 02 6a 02 dc 7f".replace(" ", ""))
+dex1[0x334730 : 0x334730 + 6] = bytes.fromhex("12 02 6a 02 dc 7f".replace(" ", ""))
+print("Applied Battery patch 3: useNewBlur, photoViewerBlur & drawActionBarShadow disabled in loadConfig")
 
 # Battery Patch 4: Background Service & Push Connection
 # Keep AyuConfig.keepAliveService enabled so NotificationsService runs as a foreground service
@@ -117,8 +122,8 @@ print("Preserved keepAliveService: NotificationsService will maintain persistent
 assert dex1[0x333b30 : 0x333b34] == bytes.fromhex("12 10 0f 00".replace(" ", ""))
 dex1[0x333b30 : 0x333b34] = bytes.fromhex("12 00 0f 00".replace(" ", ""))
 
-assert dex1[0x333b44 : 0x333b4a] == bytes.fromhex("71 00 48 d4 00 00".replace(" ", ""))
-dex1[0x333b44 : 0x333b4a] = bytes.fromhex("12 00 0f 00 00 00".replace(" ", ""))
+assert dex1[0x333b44 : 0x333b44 + 36] == bytes.fromhex("71 00 48 d4 00 00 0a 00 38 00 0c 00 13 00 00 01 71 10 3a b5 00 00 0a 00 38 00 04 00 12 10 0f 00 12 00 0f 00".replace(" ", ""))
+dex1[0x333b44 : 0x333b44 + 36] = bytes.fromhex("12 00 0f 00".replace(" ", "")) + b"\x00" * 32
 print("Applied Battery patch 5: canBlurChat and chatBlurEnabled disabled (stops GPU shader overhead)")
 
 # Battery Patch 6: startPushService AlarmManager RTC_WAKEUP 60s

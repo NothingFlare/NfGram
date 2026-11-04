@@ -49,17 +49,22 @@ public class AyuMessageHistory extends BaseFragment implements NotificationCente
 
     @Override
     public View createView(Context context) {
-        var firstMsg = messages.get(0);
-        var peer = getMessagesController().getUserOrChat(firstMsg.dialogId);
-        // todo: check sender of the message
-
         String name;
-        if (peer == null) {
-            name = "?"; // wtf
-        } else if (peer instanceof TLRPC.User) {
-            name = ((TLRPC.User) peer).first_name;
-        } else if (peer instanceof TLRPC.Chat) {
-            name = ((TLRPC.Chat) peer).title;
+        String subtitle = "";
+        if (messages != null && !messages.isEmpty()) {
+            var firstMsg = messages.get(0);
+            var peer = getMessagesController().getUserOrChat(firstMsg.dialogId);
+            subtitle = String.valueOf(firstMsg.messageId);
+
+            if (peer == null) {
+                name = "?";
+            } else if (peer instanceof TLRPC.User) {
+                name = ((TLRPC.User) peer).first_name;
+            } else if (peer instanceof TLRPC.Chat) {
+                name = ((TLRPC.Chat) peer).title;
+            } else {
+                name = LocaleController.getString("EditsHistoryTitle", R.string.EditsHistoryTitle);
+            }
         } else {
             name = LocaleController.getString("EditsHistoryTitle", R.string.EditsHistoryTitle);
         }
@@ -67,7 +72,9 @@ public class AyuMessageHistory extends BaseFragment implements NotificationCente
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
         actionBar.setTitle(name);
-        actionBar.setSubtitle(String.valueOf(firstMsg.messageId));
+        if (!subtitle.isEmpty()) {
+            actionBar.setSubtitle(subtitle);
+        }
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -191,8 +198,13 @@ public class AyuMessageHistory extends BaseFragment implements NotificationCente
             msg.edit_hide = true;
 
             // let file be downloaded
-            if (editedMessage.documentType == AyuConstants.DOCUMENT_TYPE_FILE && Objects.equals(editedMessage.mediaPath, FileLoader.getInstance(currentAccount).getPathToMessage(messageObject.messageOwner).getAbsolutePath())) {
-                msg.media.document = messageObject.messageOwner.media.document;
+            if (editedMessage.documentType == AyuConstants.DOCUMENT_TYPE_FILE && messageObject != null && messageObject.messageOwner != null) {
+                java.io.File pathFile = FileLoader.getInstance(currentAccount).getPathToMessage(messageObject.messageOwner);
+                if (pathFile != null && Objects.equals(editedMessage.mediaPath, pathFile.getAbsolutePath())) {
+                    if (messageObject.messageOwner.media != null && msg.media != null) {
+                        msg.media.document = messageObject.messageOwner.media.document;
+                    }
+                }
             }
 
             // fix reply state

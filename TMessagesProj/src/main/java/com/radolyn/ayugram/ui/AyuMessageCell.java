@@ -29,6 +29,9 @@ public class AyuMessageCell extends ChatMessageCell {
         });
 
         setOnClickListener(v -> {
+            if (editedMessage == null) {
+                return;
+            }
             // copy only if no media
             if (TextUtils.isEmpty(editedMessage.mediaPath)) {
                 copyText(fragment);
@@ -41,7 +44,9 @@ public class AyuMessageCell extends ChatMessageCell {
         });
 
         setOnLongClickListener(v -> {
-            copyText(fragment);
+            if (editedMessage != null) {
+                copyText(fragment);
+            }
             return true;
         });
     }
@@ -51,7 +56,7 @@ public class AyuMessageCell extends ChatMessageCell {
     }
 
     private void copyText(BaseFragment fragment) {
-        if (!TextUtils.isEmpty(editedMessage.text)) {
+        if (editedMessage != null && !TextUtils.isEmpty(editedMessage.text)) {
             AndroidUtilities.addToClipboard(editedMessage.text);
             BulletinFactory.of(fragment).createCopyBulletin(LocaleController.getString("MessageCopied", R.string.MessageCopied)).show();
         }
@@ -61,7 +66,7 @@ public class AyuMessageCell extends ChatMessageCell {
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
 
-        if (!TextUtils.isEmpty(editedMessage.hqThumbPath)) {
+        if (editedMessage != null && !TextUtils.isEmpty(editedMessage.hqThumbPath)) {
             getPhotoImage().setImage(editedMessage.hqThumbPath, null, null, null, 0);
         }
     }
