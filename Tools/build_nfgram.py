@@ -76,6 +76,7 @@ print("=== STEP 1: Patch DEX files ===")
 with zipfile.ZipFile(VANILLA_APK, "r") as z:
     dex1 = bytearray(z.read("classes.dex"))
     dex4 = bytearray(z.read("classes4.dex"))
+    dex6 = bytearray(z.read("classes6.dex"))
     dex7 = bytearray(z.read("classes7.dex"))
     manifest = bytearray(z.read("AndroidManifest.xml"))
     arsc = bytearray(z.read("resources.arsc"))
@@ -175,40 +176,8 @@ assert dex1[0x2919a0 : 0x2919a0 + 14] == bytes.fromhex("71 00 cf 38 00 00 0c 00 
 dex1[0x2919a0 : 0x2919a0 + 14] = b"\x00" * 14
 print("Applied NativeCrashHandler suppression patch in classes.dex (prevents false SIGSEGV kills)")
 
-# Plugins Engine Fix: Ensure Python Plugins engine is enabled & stable
-assert dex1[0x1e997a : 0x1e997e] == bytes.fromhex("39 01 34 00")
-dex1[0x1e997a : 0x1e997e] = bytes.fromhex("28 34 00 00") # bypass killswitch
+# PythonPluginsEngine kept 100% vanilla to ensure rock-solid stability and prevent crash loops
 
-assert dex1[0x1e99f2 : 0x1e99f4] == bytes.fromhex("0a 01")
-dex1[0x1e99f2 : 0x1e99f4] = bytes.fromhex("12 11") # force pluginsEngine = true
-
-assert dex1[0x3cbfc4 : 0x3cbfc8] == bytes.fromhex("1a 00 ff d5")
-dex1[0x3cbfc4 : 0x3cbfc8] = bytes.fromhex("12 00 11 00") # findModuleNameOwner returns null
-
-assert dex1[0x3cab9e : 0x3cab9e + 10] == bytes.fromhex("54 f2 8e 10 39 02 03 00 0f 01")
-dex1[0x3cab9e : 0x3cab9e + 10] = bytes.fromhex("70 10 60 38 0f 00 54 f2 8e 10") # getPython() init
-
-assert dex1[0x3caedc : 0x3caede] == bytes.fromhex("01 13")
-dex1[0x3caedc : 0x3caede] = bytes.fromhex("12 13") # sdkInitialized = true
-
-assert dex1[0x3cb236 : 0x3cb23a] == bytes.fromhex("39 00 48 00")
-dex1[0x3cb236 : 0x3cb23a] = bytes.fromhex("00 00 00 00") # allow safe mode
-
-old_req = bytes.fromhex("22 00 7f 19 1a 01 ff a5 70 20 2b 76 10 00 27 00")
-assert dex1[0x3cb2b6 : 0x3cb2b6 + 16] == old_req
-dex1[0x3cb2b6 : 0x3cb2b6 + 16] = bytes.fromhex("70 10 63 38 03 00 28 bf 00 00 00 00 00 00 00 00") # lazy bootstrap
-
-old_refresh = bytes.fromhex("1b 03 0f 3b 01 00 6e 20 ae 2e 31 00 0c 03 1f 03 6f 09 38 05 13 00 38 03 11 00 1b 01 b1 3d 01 00 6e 10 1a 75 05 00 0c 05 12 02 24 20 e4 3b 25 00 0c 05 6e 30 ab 2e 13 05")
-assert dex1[0x3cee46 : 0x3cee46 + len(old_refresh)] == old_refresh
-new_refresh = bytes.fromhex("1b 03 03 3b 01 00 6e 20 ae 2e 31 00 0c 03 1f 03 6f 09 38 05 13 00 38 03 11 00 1b 01 52 d6 00 00 6e 10 1a 75 05 00 0c 05 24 10 e4 3b 05 00 0c 05 00 00 6e 30 ab 2e 13 05")
-dex1[0x3cee46 : 0x3cee46 + len(new_refresh)] = new_refresh # append to sys.path
-
-assert dex1[0x3cca94 : 0x3cca96] == bytes.fromhex("27 03")
-dex1[0x3cca94 : 0x3cca96] = bytes.fromhex("28 01") # empty map on metadata error
-
-assert dex1[0x3cfd78 : 0x3cfd7c] == bytes.fromhex("54 60 8e 10")
-dex1[0x3cfd78 : 0x3cfd7a] = bytes.fromhex("0e 00") # do not purge SDK modules
-print("Applied PythonPluginsEngine patches 1-8 in classes.dex")
 
 # Package name replacement in dex1
 old_dir = b"/data/data/" + OLD_PACKAGE.encode("utf-8") + b"/files"
@@ -319,7 +288,7 @@ assert dex4[0x7b9500 : 0x7b9500 + 25] == b"lightnessEnhancementParam"
 dex4[0x7b9500 : 0x7b9500 + 25] = b"lighthouse_top           "
 
 code_fi_bytes = bytes.fromhex(
-    "080011000801100054125c505513ad89390317003802150054237a5215040f7f711026f504000c046e207a09430054237752140471cc2eff6e20ed0743001303c600712004fc32000c0212136e2021fc32006e2074ef20006002c383711026f502000c02711009fc02000c026e2074ef20005512ad893902350013020a0014042603087f140324de0f7f711026f503000c037130f8fb42030c0214033030e8ff6e301efc42036e2074ef20001302080014042703087f1403a3fa0f7f711026f503000c037130f8fb42030c021403ff7095ff6e301efc42036e2074ef200028361212121732721000122732721200123732721400124732721600600482826003e68428146004998260037884280f6004ca8260038883280a60047e8260035b8628056004a9826003ed85711026f503000c037130f8fb42030c036e2074ef3000d802020112673472ceff710010fc00000c026e2074ef20006002e184711026f502000c02711009fc02000c026e2074ef2000130207006004758260031f86711026f503000c035515ad89390509001a05b8c86e1004ee05000c0528031a05b8a57140f9fb42530c026e2074ef20005512ad8938023b001302080060048d8260035b86711026f503000c031a05b7a57140f9fb42530c026e2074ef2000130209006004cd826003eb83711026f503000c031a051e227140f9fb42530c026e2074ef200013020a006004908260033787711026f503000c031a05c2a57140f9fb42530c026e2074ef2000710010fc00000c026e2074ef20000e00000000000000"
+    "080011000801100054125c505513ad89390317003802150054237a5215040f7f711026f504000c046e207a09430054237752140471cc2eff6e20ed0743001303c600712004fc32000c0212136e2021fc32006e2074ef20006002c383711026f502000c02711009fc02000c026e2074ef20005512ad893902350013020a0014046703087f1403fbdc0f7f711026f503000c037130f8fb42030c0214033030e8ff6e301efc42036e2074ef20001302080014046b03087f1403a0fa0f7f711026f503000c037130f8fb42030c021403ff7095ff6e301efc42036e2074ef200028361212121732721000122732721200123732721400124732721600600482826003e68428146004998260037884280f6004ca8260038883280a60047e8260035b8628056004a9826003ed85711026f503000c037130f8fb42030c036e2074ef3000d802020112673472ceff710010fc00000c026e2074ef20006002e184711026f502000c02711009fc02000c026e2074ef2000130207006004758260031f86711026f503000c035515ad89390509001a05b8c86e1004ee05000c0528031a05b8a57140f9fb42530c026e2074ef20005512ad8938023b001302080060048d8260035b86711026f503000c031a05b7a57140f9fb42530c026e2074ef2000130209006004cd826003eb83711026f503000c031a051e227140f9fb42530c026e2074ef200013020a006004908260033787711026f503000c031a05c2a57140f9fb42530c026e2074ef2000710010fc00000c026e2074ef20000e00000000000000"
 )
 assert len(code_fi_bytes) == 574
 dex4[0x410e74 : 0x410e74 + 574] = code_fi_bytes
@@ -331,9 +300,34 @@ assert len(code_oc_bytes) == 336
 dex4[0x4110c4 : 0x4110c4 + 336] = code_oc_bytes
 print("Applied MainPreferencesActivity unified settings hierarchy patch in classes4.dex")
 
+# Replace mediabridge authority in classes4.dex
+old_mb = (OLD_PACKAGE + ".mediabridge").encode("utf-8")
+new_mb = (NEW_PACKAGE + ".mediabridge").encode("utf-8")
+assert dex4.count(old_mb) == 1
+idx4_mb = dex4.find(old_mb)
+dex4[idx4_mb : idx4_mb + len(old_mb)] = new_mb
+print("classes4.dex mediabridge authority patched!")
+
 dex4[12:32] = hashlib.sha1(dex4[32:]).digest()
 dex4[8:12] = struct.pack("<I", zlib.adler32(dex4[12:]) & 0xFFFFFFFF)
 print("classes4.dex patched with GitHub release updater hook and unified settings, verified!")
+
+# -------------------------------------------------------------
+# 2b. Patch classes6.dex: Package and mediabridge authority
+# -------------------------------------------------------------
+assert dex6.count(old_mb) == 1
+idx6_mb = dex6.find(old_mb)
+dex6[idx6_mb : idx6_mb + len(old_mb)] = new_mb
+
+old_pkg_b = OLD_PACKAGE.encode("utf-8")
+new_pkg_b = NEW_PACKAGE.encode("utf-8")
+assert dex6.count(b"\x13" + old_pkg_b + b"\x00") == 1
+idx6_pkg = dex6.find(b"\x13" + old_pkg_b + b"\x00")
+dex6[idx6_pkg + 1 : idx6_pkg + 1 + len(old_pkg_b)] = new_pkg_b
+
+dex6[12:32] = hashlib.sha1(dex6[32:]).digest()
+dex6[8:12] = struct.pack("<I", zlib.adler32(dex6[12:]) & 0xFFFFFFFF)
+print("classes6.dex patched with correct package & mediabridge authority, verified!")
 
 # -------------------------------------------------------------
 # 3. Patch classes7.dex: SettingsActivity green NfGram button
@@ -356,7 +350,7 @@ dex7[12:32] = hashlib.sha1(dex7[32:]).digest()
 dex7[8:12] = struct.pack("<I", zlib.adler32(dex7[12:]) & 0xFFFFFFFF)
 
 # Verify patched DEX files
-for name, dex_data in [("classes.dex", dex1), ("classes4.dex", dex4), ("classes7.dex", dex7)]:
+for name, dex_data in [("classes.dex", dex1), ("classes4.dex", dex4), ("classes6.dex", dex6), ("classes7.dex", dex7)]:
     tmp_path = f"tmp_{name}"
     with open(tmp_path, "wb") as f: f.write(dex_data)
     res = subprocess.run([DEXDUMP, "-c", tmp_path], capture_output=True, text=True)
@@ -375,10 +369,10 @@ manifest = manifest.replace(old_pkg_u16, new_pkg_u16)
 
 # Bump versionCode from 72379 to 72389
 old_vc = struct.pack("<I", 72379)
-new_vc = struct.pack("<I", 72389)
+new_vc = struct.pack("<I", 72391)
 assert manifest.count(old_vc) == 1
 manifest = manifest.replace(old_vc, new_vc)
-print("Bumped versionCode to 72389 in AndroidManifest.xml")
+print("Bumped versionCode to 72391 in AndroidManifest.xml")
 
 print("=== STEP 3: Patch resources.arsc ===")
 arsc_pkg_count = arsc.count(old_pkg_u16)
@@ -573,6 +567,8 @@ with zipfile.ZipFile(VANILLA_APK, "r") as zin, zipfile.ZipFile(unaligned_apk, "w
             zout.writestr(item, dex1)
         elif item.filename == "classes4.dex":
             zout.writestr(item, dex4)
+        elif item.filename == "classes6.dex":
+            zout.writestr(item, dex6)
         elif item.filename == "classes7.dex":
             zout.writestr(item, dex7)
         elif item.filename == "AndroidManifest.xml":
