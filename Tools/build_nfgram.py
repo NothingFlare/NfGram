@@ -138,7 +138,7 @@ print("Applied Battery patch 4: canBlurChat and chatBlurEnabled disabled (stops 
 
 # Battery Patch 5: Default LiteMode.powerSaverFollowSystem to true
 assert dex1[0x2c6704 : 0x2c670a] == bytes.fromhex("72 30 52 02 02 06")
-dex1[0x2c6708] = 0x03
+dex1[0x2c6709] = 0x03
 print("Applied Battery patch 5: powerSaverFollowSystem default set to true")
 
 # Single Persistent Background Push Connection: ConnectionsManager.isPushConnectionEnabled() -> always true

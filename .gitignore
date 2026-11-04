@@ -79,3 +79,8 @@ __pycache__/
 ehthumbs.db
 Thumbs.db
 Desktop.ini
+
+# Temporary build output
+build_tmp/
+Tools/build_tmp/
+*.apk
