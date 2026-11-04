@@ -136,10 +136,7 @@ assert dex1[0x329700 : 0x329706] == bytes.fromhex("71 00 4e d5 00 00")
 dex1[0x329700 : 0x329700 + 36] = bytes.fromhex("12 00 0f 00") + b"\x00" * 32 # chatBlurEnabled = false
 print("Applied Battery patch 4: canBlurChat and chatBlurEnabled disabled (stops GPU shader overhead)")
 
-# Battery Patch 5: Default LiteMode.powerSaverFollowSystem to true
-assert dex1[0x2c6704 : 0x2c670a] == bytes.fromhex("72 30 52 02 02 06")
-dex1[0x2c6709] = 0x03
-print("Applied Battery patch 5: powerSaverFollowSystem default set to true")
+# Battery Patch 5: Keep LiteMode.loadPreference 100% vanilla to prevent ART VerifyError
 
 # Single Persistent Background Push Connection: ConnectionsManager.isPushConnectionEnabled() -> always true
 assert dex1[0x337fd0 : 0x337fd6] == bytes.fromhex("71 00 74 c7 00 00")
