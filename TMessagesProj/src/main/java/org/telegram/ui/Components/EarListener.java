@@ -240,7 +240,7 @@ public class EarListener implements SensorEventListener {
                 }
             }
             previousAccValue = val;
-            accelerometerVertical = gravityFast[1] > 2.5f && Math.abs(gravityFast[2]) < 4.0f && Math.abs(gravityFast[0]) > 1.5f;
+            accelerometerVertical = gravityFast[1] > 5.5f && Math.abs(gravityFast[2]) < 4.0f;
         }
         if (raisedToBack == minCount || accelerometerVertical) {
             lastAccelerometerDetected = System.currentTimeMillis();
@@ -270,7 +270,7 @@ public class EarListener implements SensorEventListener {
             raisedToTop = 0;
             raisedToTopSign = 0;
             countLess = 0;
-        } else if (proximityTouched && ((accelerometerSensor == null || linearSensor == null) && gravitySensor == null) && !VoIPService.isAnyKindOfCallActive()) {
+        } else if (proximityTouched && (accelerometerSensor == null && linearSensor == null && gravitySensor == null) && !VoIPService.isAnyKindOfCallActive()) {
             if (!raised) {
                 raised = true;
                 updateRaised();
@@ -291,7 +291,7 @@ public class EarListener implements SensorEventListener {
     }
 
     private boolean isNearToSensor(float value) {
-        return value < 5.0f && value != proximitySensor.getMaximumRange();
+        return value < 2.0f && value != proximitySensor.getMaximumRange();
     }
 
     @Override

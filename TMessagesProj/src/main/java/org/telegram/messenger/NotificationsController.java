@@ -568,9 +568,13 @@ public class NotificationsController extends BaseController {
                 });
             }
             if (old_unread_count != total_unread_count) {
-                if (!notifyCheck) {
+                if (!delayedPushMessages.isEmpty()) {
+                    showOrUpdateNotification(true);
                     delayedPushMessages.clear();
-                    showOrUpdateNotification(notifyCheck);
+                } else if (!notifyCheck) {
+                    showOrUpdateNotification(false);
+                } else if (ApplicationLoader.mainInterfacePaused || !ApplicationLoader.isScreenOn) {
+                    showOrUpdateNotification(true);
                 } else {
                     scheduleNotificationDelay(lastOnlineFromOtherDevice > getConnectionsManager().getCurrentTime());
                 }
@@ -652,9 +656,13 @@ public class NotificationsController extends BaseController {
                 });
             }
             if (old_unread_count != total_unread_count) {
-                if (!notifyCheck) {
+                if (!delayedPushMessages.isEmpty()) {
+                    showOrUpdateNotification(true);
                     delayedPushMessages.clear();
-                    showOrUpdateNotification(notifyCheck);
+                } else if (!notifyCheck) {
+                    showOrUpdateNotification(false);
+                } else if (ApplicationLoader.mainInterfacePaused || !ApplicationLoader.isScreenOn) {
+                    showOrUpdateNotification(true);
                 } else {
                     scheduleNotificationDelay(lastOnlineFromOtherDevice > getConnectionsManager().getCurrentTime());
                 }
@@ -1366,9 +1374,13 @@ public class NotificationsController extends BaseController {
                 });
             }
             if (old_unread_count != total_unread_count) {
-                if (!notifyCheck) {
+                if (!delayedPushMessages.isEmpty()) {
+                    showOrUpdateNotification(true);
                     delayedPushMessages.clear();
-                    showOrUpdateNotification(notifyCheck);
+                } else if (!notifyCheck) {
+                    showOrUpdateNotification(false);
+                } else if (ApplicationLoader.mainInterfacePaused || !ApplicationLoader.isScreenOn) {
+                    showOrUpdateNotification(true);
                 } else {
                     scheduleNotificationDelay(lastOnlineFromOtherDevice > getConnectionsManager().getCurrentTime());
                 }
@@ -3151,9 +3163,14 @@ public class NotificationsController extends BaseController {
             if (BuildVars.LOGS_ENABLED) {
                 FileLog.d("delay notification start, onlineReason = " + onlineReason);
             }
+            if (ApplicationLoader.mainInterfacePaused || !ApplicationLoader.isScreenOn) {
+                delayedPushMessages.clear();
+                showOrUpdateNotification(true);
+                return;
+            }
             notificationDelayWakelock.acquire(10000);
             notificationsQueue.cancelRunnable(notificationDelayRunnable);
-            notificationsQueue.postRunnable(notificationDelayRunnable, (onlineReason ? 3 * 1000 : 1000));
+            notificationsQueue.postRunnable(notificationDelayRunnable, (onlineReason ? 1000 : 500));
         } catch (Exception e) {
             FileLog.e(e);
             showOrUpdateNotification(notifyCheck);
@@ -4656,7 +4673,7 @@ public class NotificationsController extends BaseController {
                 }
                 try {
                     notificationManager.notify(id, notification.build());
-                } catch (SecurityException e) {
+                } catch (Throwable e) {
                     FileLog.e(e);
                     resetNotificationSound(notification, dialogId, lastTopicId, chatName, vibrationPattern, ledColor, sound, importance, isDefault, isInApp, isSilent, chatType);
                 }
@@ -5425,7 +5442,7 @@ public class NotificationsController extends BaseController {
             }
             try {
                 notificationManager.notify(notificationId, mainNotification);
-            } catch (SecurityException e) {
+            } catch (Throwable e) {
                 FileLog.e(e);
                 resetNotificationSound(notificationBuilder, lastDialogId, lastTopicId, chatName, vibrationPattern, ledColor, sound, importance, isDefault, isInApp, isSilent, chatType);
             }

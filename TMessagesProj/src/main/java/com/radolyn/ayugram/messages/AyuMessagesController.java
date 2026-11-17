@@ -30,11 +30,27 @@ import java.util.List;
 
 public class AyuMessagesController {
     public static final String attachmentsSubfolder = "Saved Attachments";
-    public static final File attachmentsPath = new File(
-            new File(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), AyuConstants.APP_NAME),
-            attachmentsSubfolder
-    );
+    public static File attachmentsPath;
+
+    static {
+        File dir = null;
+        try {
+            if (org.telegram.messenger.ApplicationLoader.applicationContext != null) {
+                dir = org.telegram.messenger.ApplicationLoader.applicationContext.getExternalFilesDir(null);
+            }
+        } catch (Throwable ignored) {}
+        if (dir == null) {
+            try {
+                if (org.telegram.messenger.ApplicationLoader.applicationContext != null) {
+                    dir = org.telegram.messenger.ApplicationLoader.applicationContext.getFilesDir();
+                }
+            } catch (Throwable ignored) {}
+        }
+        if (dir == null) {
+            dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), AyuConstants.APP_NAME);
+        }
+        attachmentsPath = new File(dir, attachmentsSubfolder);
+    }
     private static AyuMessagesController instance;
     private final EditedMessageDao editedMessageDao;
     private final DeletedMessageDao deletedMessageDao;
@@ -47,7 +63,7 @@ public class AyuMessagesController {
     }
 
     private static void initializeAttachmentsFolder() {
-        if (!attachmentsPath.exists()) {
+        if (attachmentsPath != null && !attachmentsPath.exists()) {
             attachmentsPath.mkdirs();
             try {
                 new File(attachmentsPath, ".nomedia").createNewFile();
@@ -170,8 +186,11 @@ public class AyuMessagesController {
     }
 
     private void processDeletedReactions(long fakeMessageId, TLRPC.TL_messageReactions reactions) {
+        if (reactions == null || reactions.results == null || reactions.results.isEmpty()) {
+            return;
+        }
         for (var reaction : reactions.results) {
-            if (reaction.reaction instanceof TLRPC.TL_reactionEmpty) {
+            if (reaction == null || reaction.reaction == null || reaction.reaction instanceof TLRPC.TL_reactionEmpty) {
                 continue;
             }
 

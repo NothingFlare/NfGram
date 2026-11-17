@@ -295,34 +295,45 @@ public class LiteMode {
     }
 
     private static void onPowerSaverApplied(boolean powerSaverApplied) {
-        if (powerSaverApplied) {
-            onFlagsUpdate(getValue(true), PRESET_POWER_SAVER);
-        } else {
-            onFlagsUpdate(PRESET_POWER_SAVER, getValue(true));
-        }
+        AndroidUtilities.runOnUIThread(() -> {
+            try {
+                if (powerSaverApplied) {
+                    onFlagsUpdate(getValue(true), PRESET_POWER_SAVER);
+                } else {
+                    onFlagsUpdate(PRESET_POWER_SAVER, getValue(true));
+                }
+            } catch (Throwable ignore) {
+            }
+        });
         if (onPowerSaverAppliedListeners != null) {
             AndroidUtilities.runOnUIThread(() -> {
-                Iterator<Utilities.Callback<Boolean>> i = onPowerSaverAppliedListeners.iterator();
-                while (i.hasNext()) {
-                    Utilities.Callback<Boolean> callback = i.next();
-                    if (callback != null) {
-                        callback.run(powerSaverApplied);
+                try {
+                    Iterator<Utilities.Callback<Boolean>> i = onPowerSaverAppliedListeners.iterator();
+                    while (i.hasNext()) {
+                        Utilities.Callback<Boolean> callback = i.next();
+                        if (callback != null) {
+                            callback.run(powerSaverApplied);
+                        }
                     }
+                } catch (Throwable ignore) {
                 }
             });
         }
     }
 
     private static void onFlagsUpdate(int oldValue, int newValue) {
-        int changedFlags = ~oldValue & newValue;
-        if ((changedFlags & FLAGS_ANIMATED_EMOJI) > 0) {
-            AnimatedEmojiDrawable.updateAll();
-        }
-        if ((changedFlags & FLAG_CHAT_BACKGROUND) > 0) {
-            SvgHelper.SvgDrawable.updateLiteValues();
-        }
-        if ((changedFlags & FLAG_CHAT_BACKGROUND) > 0) {
-            Theme.reloadWallpaper(true);
+        try {
+            int changedFlags = ~oldValue & newValue;
+            if ((changedFlags & FLAGS_ANIMATED_EMOJI) > 0) {
+                AnimatedEmojiDrawable.updateAll();
+            }
+            if ((changedFlags & FLAG_CHAT_BACKGROUND) > 0) {
+                SvgHelper.SvgDrawable.updateLiteValues();
+            }
+            if ((changedFlags & FLAG_CHAT_BACKGROUND) > 0) {
+                Theme.reloadWallpaper(true);
+            }
+        } catch (Throwable ignore) {
         }
     }
 

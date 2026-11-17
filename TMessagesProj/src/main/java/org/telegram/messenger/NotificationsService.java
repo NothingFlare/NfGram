@@ -20,6 +20,7 @@ import androidx.core.app.NotificationManagerCompat;
 
 import com.google.android.exoplayer2.util.Log;
 import com.radolyn.ayugram.AyuConfig;
+import com.radolyn.ayugram.AyuConstants;
 
 import org.telegram.ui.LaunchActivity;
 
@@ -55,12 +56,11 @@ public class NotificationsService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        ApplicationLoader.postInitApplication();
 
         if (AyuConfig.keepAliveService && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             String CHANNEL_ID = "ayugram_push";
-            NotificationChannelCompat channel = new NotificationChannelCompat.Builder(CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_DEFAULT)
-                    .setName("AyuGram Push Service")
+            NotificationChannelCompat channel = new NotificationChannelCompat.Builder(CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_LOW)
+                    .setName(AyuConstants.APP_NAME + " Push Service")
                     .setLightsEnabled(false)
                     .setVibrationEnabled(false)
                     .setSound(null, null)
@@ -76,7 +76,7 @@ public class NotificationsService extends Service {
             // todo: remove try catch
             try {
                 var startIntent = new Intent(this, LaunchActivity.class);
-                var pendingIntent = PendingIntent.getActivity(this, 0, startIntent, PendingIntent.FLAG_MUTABLE);
+                var pendingIntent = PendingIntent.getActivity(this, 0, startIntent, PendingIntent.FLAG_IMMUTABLE);
 
                 notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                         .setContentIntent(pendingIntent)
@@ -84,7 +84,7 @@ public class NotificationsService extends Service {
                         .setShowWhen(false)
                         .setOngoing(true)
                         .setContentText(cuteText)
-                        .setCategory(NotificationCompat.CATEGORY_STATUS)
+                        .setCategory(NotificationCompat.CATEGORY_SERVICE)
                         .build();
             } catch (Exception e) {
                 Log.e("AyuGram", "Xiaomi moment", e);
@@ -98,7 +98,17 @@ public class NotificationsService extends Service {
                         .build();
             }
 
-            startForeground(9999, notification);
+            try {
+                startForeground(9999, notification);
+            } catch (Throwable e) {
+                Log.e("AyuGram", "startForeground failed", e);
+            }
+        }
+
+        try {
+            ApplicationLoader.postInitApplication();
+        } catch (Throwable e) {
+            Log.e("AyuGram", "postInitApplication in NotificationsService failed", e);
         }
     }
 

@@ -43,10 +43,19 @@ public class AyuSyncWebSocketClient extends WebSocketClient {
 
         instance.setConnectTimeout(5000);
         instance.setReadTimeout(60000);
-        instance.addHeader("X-APP-PACKAGE", AyuUtils.getPackageName());
-        instance.addHeader("X-DEVICE-IDENTIFIER", AyuUtils.getDeviceIdentifier());
-        instance.addHeader("Authorization", AyuSyncConfig.getToken());
-        instance.enableAutomaticReconnection(1500);
+        String pkg = AyuUtils.getPackageName();
+        if (pkg != null) {
+            instance.addHeader("X-APP-PACKAGE", pkg);
+        }
+        String devId = AyuUtils.getDeviceIdentifier();
+        if (devId != null) {
+            instance.addHeader("X-DEVICE-IDENTIFIER", devId);
+        }
+        String token = AyuSyncConfig.getToken();
+        if (token != null) {
+            instance.addHeader("Authorization", token);
+        }
+        instance.enableAutomaticReconnection(10000);
         instance.connect();
 
         return true;

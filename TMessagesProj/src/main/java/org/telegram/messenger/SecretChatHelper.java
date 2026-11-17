@@ -16,6 +16,7 @@ import android.util.SparseIntArray;
 
 import com.radolyn.ayugram.AyuConfig;
 import com.radolyn.ayugram.AyuConstants;
+import com.radolyn.ayugram.utils.AyuState;
 import com.radolyn.ayugram.messages.AyuMessagesController;
 import com.radolyn.ayugram.messages.AyuSavePreferences;
 
@@ -207,6 +208,9 @@ public class SecretChatHelper extends BaseController {
     }
 
     public void sendMessagesReadMessage(TLRPC.EncryptedChat encryptedChat, ArrayList<Long> random_ids, TLRPC.Message resendMessage) {
+        if (!AyuConfig.sendReadPackets && !AyuState.getAllowReadPacket()) {
+            return;
+        }
         if (!(encryptedChat instanceof TLRPC.TL_encryptedChat)) {
             return;
         }
@@ -532,6 +536,9 @@ public class SecretChatHelper extends BaseController {
     }
 
     public void sendScreenshotMessage(TLRPC.EncryptedChat encryptedChat, ArrayList<Long> random_ids, TLRPC.Message resendMessage) {
+        if (!AyuConfig.sendReadPackets) {
+            return;
+        }
         if (!(encryptedChat instanceof TLRPC.TL_encryptedChat)) {
             return;
         }

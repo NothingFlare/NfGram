@@ -21,13 +21,23 @@ import java.util.ArrayList;
 // https://open.spotify.com/track/2qpOzuQGFqTKNn56w7qShx
 public class AyuForwarder {
     public static boolean isFullAyuForwardsNeeded(int currentAccount, ArrayList<MessageObject> messages) {
-        var dialogId = messages.get(0).getDialogId();
+        if (messages == null || messages.isEmpty()) {
+            return false;
+        }
+        var firstMsg = messages.get(0);
+        if (firstMsg == null) {
+            return false;
+        }
+        var dialogId = firstMsg.getDialogId();
         var chat = MessagesController.getInstance(currentAccount).getChat(Math.abs(dialogId));
 
         return chat != null && chat.ayuNoforwards;
     }
 
     public static boolean isAyuForwardNeeded(ArrayList<MessageObject> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return false;
+        }
         for (var message : messages) {
             if (isAyuForwardNeeded(message)) {
                 return true;
@@ -38,10 +48,13 @@ public class AyuForwarder {
     }
 
     private static boolean isAyuForwardNeeded(MessageObject message) {
-        return message.messageOwner != null && (message.messageOwner.ayuDeleted || message.messageOwner.ayuNoforwards);
+        return message != null && message.messageOwner != null && (message.messageOwner.ayuDeleted || message.messageOwner.ayuNoforwards);
     }
 
     public static void intelligentForward(int currentAccount, ArrayList<MessageObject> messages, long peer, boolean forwardFromMyName, boolean hideCaption, boolean notify, int scheduleDate, MessageObject replyToTopMsg) {
+        if (messages == null || messages.isEmpty()) {
+            return;
+        }
         var batches = new ArrayList<ForwardBatch>();
 
         var currentArray = new ArrayList<MessageObject>();
@@ -71,6 +84,9 @@ public class AyuForwarder {
     }
 
     public static void forwardMessages(int currentAccount, ArrayList<MessageObject> messages, long peer, boolean forwardFromMyName, boolean hideCaption, boolean notify, int scheduleDate, MessageObject replyToTopMsg) {
+        if (messages == null || messages.isEmpty()) {
+            return;
+        }
         var toBeDownloaded = new ArrayList<MessageObject>();
 
         var groups = new LongSparseArray<Long>();
@@ -81,6 +97,9 @@ public class AyuForwarder {
         var fullNoforwards = isFullAyuForwardsNeeded(currentAccount, messages);
 
         for (var message : messages) {
+            if (message == null || message.messageOwner == null) {
+                continue;
+            }
             if (fullNoforwards || message.messageOwner.ayuNoforwards || message.messageOwner.ayuDeleted) {
                 if (AyuUtils.isMediaDownloadable(message, false)) {
                     toBeDownloaded.add(message);
@@ -103,6 +122,9 @@ public class AyuForwarder {
         }
 
         for (var message : messages) {
+            if (message == null || message.messageOwner == null) {
+                continue;
+            }
             var textExtracted = ChatUtils.getMessageText(message, null);
             var text = textExtracted == null ? "" : textExtracted.toString();
             var mediaDownloadable = AyuUtils.isMediaDownloadable(message, false);
@@ -137,39 +159,41 @@ public class AyuForwarder {
             } else if (message.getDocument() != null) {
                 var doc = message.getDocument();
                 var newDoc = mapDocument(currentAccount, doc, messagePath);
-
-                AyuEasyUtils.sendDocumentMessageSync(
-                        currentAccount,
-                        newDoc,
-                        messagePath.getAbsolutePath(),
-                        peer,
-                        null,
-                        replyToTopMsg,
-                        text,
-                        message.messageOwner.entities,
-                        notify,
-                        newGroupId,
-                        isFinalInGroup
-                );
+                if (newDoc != null && messagePath != null) {
+                    AyuEasyUtils.sendDocumentMessageSync(
+                            currentAccount,
+                            newDoc,
+                            messagePath.getAbsolutePath(),
+                            peer,
+                            null,
+                            replyToTopMsg,
+                            text,
+                            message.messageOwner.entities,
+                            notify,
+                            newGroupId,
+                            isFinalInGroup
+                    );
+                }
             } else if (message.isPhoto()) {
                 var photo = MessageObject.getPhoto(message.messageOwner);
                 var newPhoto = mapPhoto(currentAccount, photo, messagePath);
+                if (newPhoto != null && messagePath != null) {
+                    var caption = TextUtils.isEmpty(photo.caption) ? text : photo.caption;
 
-                var caption = TextUtils.isEmpty(photo.caption) ? text : photo.caption;
-
-                AyuEasyUtils.sendPhotoMessageSync(
-                        currentAccount,
-                        newPhoto,
-                        messagePath.getAbsolutePath(),
-                        peer,
-                        null,
-                        replyToTopMsg,
-                        caption,
-                        message.messageOwner.entities,
-                        notify,
-                        newGroupId,
-                        isFinalInGroup
-                );
+                    AyuEasyUtils.sendPhotoMessageSync(
+                            currentAccount,
+                            newPhoto,
+                            messagePath.getAbsolutePath(),
+                            peer,
+                            null,
+                            replyToTopMsg,
+                            caption,
+                            message.messageOwner.entities,
+                            notify,
+                            newGroupId,
+                            isFinalInGroup
+                    );
+                }
             } else {
                 Log.w("AyuGram", "Unsupported message type: " + message.messageOwner);
             }
@@ -181,6 +205,9 @@ public class AyuForwarder {
     }
 
     private static TLRPC.TL_document mapDocument(int currentAccount, TLRPC.Document doc, File messagePath) {
+        if (doc == null || messagePath == null || !messagePath.exists()) {
+            return null;
+        }
         var newDoc = new TLRPC.TL_document();
         newDoc.file_reference = new byte[0];
         newDoc.dc_id = Integer.MIN_VALUE;
@@ -198,9 +225,15 @@ public class AyuForwarder {
     }
 
     private static TLRPC.TL_photo mapPhoto(int currentAccount, TLRPC.Photo photo, File messagePath) {
+        if (photo == null || messagePath == null || !messagePath.exists()) {
+            return null;
+        }
         var helper = SendMessagesHelper.getInstance(currentAccount);
 
         var newPhoto = helper.generatePhotoSizes(messagePath.getAbsolutePath(), null); // todo: mapPhoto
+        if (newPhoto == null) {
+            return null;
+        }
         newPhoto.flags = photo.flags;
         newPhoto.has_stickers = photo.has_stickers;
         newPhoto.date = AccountInstance.getInstance(currentAccount).getConnectionsManager().getCurrentTime();

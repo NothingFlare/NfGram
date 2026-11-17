@@ -180,7 +180,16 @@ public class AyuUtils {
 
     @SuppressLint("HardwareIds")
     public static String getDeviceIdentifier() {
-        return Secure.getString(ApplicationLoader.applicationContext.getContentResolver(), Secure.ANDROID_ID);
+        try {
+            if (ApplicationLoader.applicationContext != null) {
+                String id = Secure.getString(ApplicationLoader.applicationContext.getContentResolver(), Secure.ANDROID_ID);
+                if (!TextUtils.isEmpty(id)) {
+                    return id;
+                }
+            }
+        } catch (Throwable ignore) {
+        }
+        return "0000000000000000";
     }
 
     public static String getDeviceName() {
@@ -188,7 +197,12 @@ public class AyuUtils {
     }
 
     public static void killApplication(Activity activity) {
-        activity.finishAndRemoveTask();
+        if (activity != null) {
+            try {
+                activity.finishAndRemoveTask();
+            } catch (Throwable ignore) {
+            }
+        }
         int pid = android.os.Process.myPid();
         android.os.Process.killProcess(pid);
     }

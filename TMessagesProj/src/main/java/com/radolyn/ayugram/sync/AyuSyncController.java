@@ -81,15 +81,7 @@ public class AyuSyncController {
     }
 
     private static void enqueueRetry() {
-        queue.postRunnable(() -> {
-            try {
-                Thread.sleep(1500);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-
-            create();
-        });
+        queue.postRunnable(AyuSyncController::create, 1500);
     }
 
     private void loadAccounts() {
@@ -180,15 +172,15 @@ public class AyuSyncController {
                 .get()
                 .build();
 
-        try {
-            var response = client.newCall(request).execute();
-
+        try (var response = client.newCall(request).execute()) {
             Log.d("AyuSync", "Get self status: " + response.code());
 
-            return new GsonBuilder()
-                    .setDateFormat("yyyy-MM-dd'T'HH:mm:ssz")
-                    .create()
-                    .fromJson(response.body().string(), AyuUser.class);
+            if (response.body() != null) {
+                return new GsonBuilder()
+                        .setDateFormat("yyyy-MM-dd'T'HH:mm:ssz")
+                        .create()
+                        .fromJson(response.body().string(), AyuUser.class);
+            }
         } catch (Exception e) {
             Log.d("AyuSync", "Failed to get self: " + e.getMessage());
             enqueueRetry();
@@ -218,8 +210,7 @@ public class AyuSyncController {
                 .build();
 
         boolean success;
-        try {
-            var response = client.newCall(request).execute();
+        try (var response = client.newCall(request).execute()) {
             success = response.isSuccessful();
             Log.d("AyuSync", "Force sync status: " + response.code());
         } catch (IOException e) {
@@ -229,9 +220,18 @@ public class AyuSyncController {
     }
 
     public void onForceSync(SyncForce req) {
+        if (req == null) {
+            return;
+        }
         var accountId = accounts.get(req.userId);
+        if (accountId == null) {
+            return;
+        }
 
         var controller = MessagesController.getInstance(accountId);
+        if (controller == null) {
+            return;
+        }
 
         // ~ sync dialog states
         var dialogs = controller.getAllDialogs();
@@ -304,12 +304,21 @@ public class AyuSyncController {
     }
 
     public void onSyncRead(SyncRead req) {
+        if (req == null || req.args == null) {
+            return;
+        }
         var accountId = accounts.get(req.userId);
+        if (accountId == null) {
+            return;
+        }
 
         var controller = MessagesController.getInstance(accountId);
+        if (controller == null) {
+            return;
+        }
 
         var dialog = controller.getDialog(req.args.dialogId);
-        if (dialog.unread_count <= req.args.unread) {
+        if (dialog == null || dialog.unread_count <= req.args.unread) {
             return;
         }
 
@@ -317,10 +326,19 @@ public class AyuSyncController {
     }
 
     public void invokeHandler(JsonObject req) {
+        if (req == null) {
+            return;
+        }
         Log.d("AyuSync", req.toString());
 
-        var userId = req.get("userId").getAsLong();
-        var type = req.get("type").getAsString();
+        var userIdElement = req.get("userId");
+        var typeElement = req.get("type");
+        if (userIdElement == null || typeElement == null) {
+            return;
+        }
+
+        var userId = userIdElement.getAsLong();
+        var type = typeElement.getAsString();
 
         Log.d("AyuSync", "userId: " + userId + ", type: " + type);
 

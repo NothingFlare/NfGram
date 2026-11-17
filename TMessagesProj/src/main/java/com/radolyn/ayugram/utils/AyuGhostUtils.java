@@ -58,6 +58,9 @@ public class AyuGhostUtils {
     }
 
     public static Long getDialogId(TLRPC.InputPeer peer) {
+        if (peer == null) {
+            return 0L;
+        }
         long dialogId;
         if (peer.chat_id != 0) {
             dialogId = -peer.chat_id;
@@ -71,6 +74,9 @@ public class AyuGhostUtils {
     }
 
     public static Long getDialogId(TLRPC.InputChannel peer) {
+        if (peer == null) {
+            return 0L;
+        }
         return -peer.channel_id;
     }
 

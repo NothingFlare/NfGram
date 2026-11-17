@@ -1,3 +1,4 @@
+import copy
 """
 Full NfGram 13.1.1 Build & Verification Script
 """
@@ -12,20 +13,36 @@ import shutil
 from PIL import Image, ImageDraw
 import io
 
-BASE_DIR = r"C:\project\NfGram Android"
-VANILLA_APK = r"c:\Users\styuk\Desktop\vanilla-AyuGram-full-20261104.apk"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) if "__file__" in locals() else r"C:\project\NfGram Android"
+
+def find_vanilla_apk():
+    candidates = [
+        r"c:\Users\styuk\Downloads\AyuGram Desktop\vanilla-AyuGram-full-20261104.apk",
+        r"c:\Users\styuk\Desktop\vanilla-AyuGram-full-20261104.apk",
+        os.path.join(BASE_DIR, "vanilla-AyuGram-full-20261104.apk"),
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return candidates[0]
+
+VANILLA_APK = find_vanilla_apk()
 EXTERA_APK = r"c:\Users\styuk\Downloads\AyuGram Desktop\exteraGram-full-universal-20261004.apk"
 OUTPUT_APK_NFGRAM = r"c:\Users\styuk\Downloads\AyuGram Desktop\NfGram-13.1.1-universal.apk"
 OUTPUT_APK_DESKTOP = r"C:\Users\styuk\Desktop\NfGram-13.1.1-universal.apk"
 OUTPUT_APK_PROJECT = os.path.join(BASE_DIR, "NfGram-13.1.1-universal.apk")
 
-KEYSTORE = os.path.join(BASE_DIR, "Tools", "nfgram_release.keystore")
-ZIPALIGN = r"C:\Users\styuk\AppData\Local\Android\Sdk\build-tools\34.0.0\zipalign.exe"
-APKSIGNER_JAR = r"C:\Users\styuk\AppData\Local\Android\Sdk\build-tools\34.0.0\lib\apksigner.jar"
-AAPT = r"C:\Users\styuk\AppData\Local\Android\Sdk\build-tools\34.0.0\aapt.exe"
-ANDROID_JAR = r"C:\Users\styuk\AppData\Local\Android\Sdk\platforms\android-34\android.jar"
-D8 = r"C:\Users\styuk\AppData\Local\Android\Sdk\build-tools\34.0.0\d8.bat"
-DEXDUMP = r"C:\Users\styuk\AppData\Local\Android\Sdk\build-tools\34.0.0\dexdump.exe"
+SDK_ROOT = os.environ.get("ANDROID_HOME", os.environ.get("ANDROID_SDK_ROOT", r"C:\Users\styuk\AppData\Local\Android\Sdk"))
+KEYSTORE = os.environ.get("NFGRAM_KEYSTORE", os.path.join(BASE_DIR, "Tools", "nfgram_release.keystore"))
+KEYSTORE_PASS = os.environ.get("NFGRAM_KEYSTORE_PASS", "nfgram")
+
+build_tools_dir = os.path.join(SDK_ROOT, "build-tools", "34.0.0")
+ZIPALIGN = os.path.join(build_tools_dir, "zipalign.exe" if os.name == "nt" else "zipalign")
+APKSIGNER_JAR = os.path.join(build_tools_dir, "lib", "apksigner.jar")
+AAPT = os.path.join(build_tools_dir, "aapt.exe" if os.name == "nt" else "aapt")
+ANDROID_JAR = os.path.join(SDK_ROOT, "platforms", "android-34", "android.jar")
+D8 = os.path.join(build_tools_dir, "d8.bat" if os.name == "nt" else "d8")
+DEXDUMP = os.path.join(build_tools_dir, "dexdump.exe" if os.name == "nt" else "dexdump")
 
 OLD_PACKAGE = "com.radolyn.ayugram"
 NEW_PACKAGE = "com.red.nfgram.chat"
@@ -41,6 +58,7 @@ updater_src = os.path.join(BASE_DIR, "TMessagesProj", "src", "main", "java", "co
 cmd_javac = [
     "javac",
     "--release", "11",
+    "-encoding", "UTF-8",
     "-cp", ANDROID_JAR,
     "-d", build_tmp,
     updater_src
@@ -59,6 +77,7 @@ for root, _, files in os.walk(build_tmp):
 cmd_d8 = [
     D8,
     "--lib", ANDROID_JAR,
+    "--min-api", "24",
     "--output", build_tmp
 ] + class_files
 res_d8 = subprocess.run(cmd_d8, capture_output=True, text=True)
@@ -75,7 +94,9 @@ print(f"Compiled classes9.dex successfully: {len(dex9)} bytes")
 print("=== STEP 1: Patch DEX files ===")
 with zipfile.ZipFile(VANILLA_APK, "r") as z:
     dex1 = bytearray(z.read("classes.dex"))
+    dex3 = bytearray(z.read("classes3.dex"))
     dex4 = bytearray(z.read("classes4.dex"))
+    dex6 = bytearray(z.read("classes6.dex"))
     dex7 = bytearray(z.read("classes7.dex"))
     manifest = bytearray(z.read("AndroidManifest.xml"))
     arsc = bytearray(z.read("resources.arsc"))
@@ -91,6 +112,14 @@ dex1[0x500cc4 : 0x500cc8] = bytes.fromhex('15 00 00 40')
 # 2. Accelerometer vertical angle: increase threshold from 2.5f to 5.5f
 assert dex1[0x5097aa : 0x5097ae] == bytes.fromhex('15 04 20 40')
 dex1[0x5097aa : 0x5097ae] = bytes.fromhex('15 04 b0 40')
+
+# 3. Suppress |X| > 1.5 horizontal tilt requirement (allow natural straight hold to ear)
+assert dex1[0x5097e6 : 0x5097e6 + 4] == bytes.fromhex('3d 01 05 00')
+dex1[0x5097e6 : 0x5097e6 + 4] = bytes.fromhex('00 00 00 00')
+
+# 4. Completely eliminate buggy "proximity only" fallback that triggered when phone was in hand/desk
+assert dex1[0x509ab6 : 0x509ab6 + 4] == bytes.fromhex('38 04 3e 00')
+dex1[0x509ab6 : 0x509ab6 + 4] = bytes.fromhex('28 3e 00 00')
 print("Applied Proximity and Ear sensor anti-accidental trigger patch in classes.dex")
 
 # Thermal and Overheating Protection:
@@ -148,7 +177,7 @@ code_lp.extend(bytes.fromhex("0a 01"))             # move-result v1
 code_lp.extend(bytes.fromhex("67 01 39 34"))       # sput v1, value
 code_lp.extend(bytes.fromhex("12 01"))             # const/4 v1, 0
 code_lp.extend(bytes.fromhex("67 01 38 34"))       # sput v1, powerSaverLevel
-code_lp.extend(bytes.fromhex("12 11"))             # const/4 v1, 1
+code_lp.extend(bytes.fromhex("12 01"))             # const/4 v1, 0 (powerSaverFollowSystem = false, stops charging state thrashing)
 code_lp.extend(bytes.fromhex("6a 01 37 34"))       # sput-boolean v1, powerSaverFollowSystem
 code_lp.extend(bytes.fromhex("6a 01 35 34"))       # sput-boolean v1, loaded
 code_lp.extend(bytes.fromhex("0e 00"))             # return-void
@@ -159,6 +188,21 @@ while len(code_lp) < 654:
 
 dex1[base_lp : base_lp + 654] = code_lp
 print("Applied Battery patch 5: robust, crash-proof LiteMode.loadPreference")
+
+# Thermal & Charging Protection Patch A: Disable 60-second AlarmManager wake loop in ApplicationLoader.startPushService
+assert dex1[0x291e12 : 0x291e16] == bytes.fromhex("38 00 2f 00")
+dex1[0x291e12 : 0x291e16] = bytes.fromhex("28 2f 00 00") # goto +0x2f; nop
+print("Applied Thermal & Charging Patch A: startPushService repeating alarm wakeup loop suppressed")
+
+# Thermal & Charging Protection Patch B: LiteMode.onFlagsUpdate returns immediately (prevents CalledFromWrongThreadException on background battery transitions)
+assert dex1[0x2c6728 : 0x2c672a] == bytes.fromhex("7c 00")
+dex1[0x2c6728 : 0x2c672a] = bytes.fromhex("0e 00") # return-void
+print("Applied Thermal & Charging Patch B: LiteMode.onFlagsUpdate background crash suppression")
+
+# Thermal & Charging Protection Patch C: NotificationsService.onCreate NOPs postInitApplication to call startForeground immediately
+assert dex1[0x3265dc : 0x3265dc + 6] == bytes.fromhex("71 00 e9 ab 00 00")
+dex1[0x3265dc : 0x3265dc + 6] = bytes.fromhex("00 00 00 00 00 00")
+print("Applied Thermal & Charging Patch C: NotificationsService instant startForeground (thermal throttle freeze proof)")
 
 # Single Persistent Background Push Connection: ConnectionsManager.isPushConnectionEnabled() -> always true
 assert dex1[0x337fd0 : 0x337fd6] == bytes.fromhex("71 00 74 c7 00 00")
@@ -224,6 +268,17 @@ string_ids_off1 = struct.unpack("<I", dex1[60:64])[0]
 str58093_off = struct.unpack("<I", dex1[string_ids_off1 + 58093*4 : string_ids_off1 + 58094*4])[0]
 assert dex1[str58093_off : str58093_off + 21] == expected_old_entry
 dex1[str58093_off : str58093_off + 21] = new_entry
+
+# Anti-Rebrand Sabotage Suppression (neutralize yyy7.o and yyy7.vvv, NOP QueueFile.perform call)
+assert dex1[0x3374ac : 0x3374ac + 2] == bytes.fromhex('62 00')
+dex1[0x3374ac : 0x3374ac + 2] = bytes.fromhex('0e 00') # return-void for yyy7.o
+
+assert dex1[0x3374c8 : 0x3374c8 + 2] == bytes.fromhex('14 00')
+dex1[0x3374c8 : 0x3374c8 + 2] = bytes.fromhex('0e 00') # return-void for yyy7.vvv
+
+assert dex1[0x33751e : 0x33751e + 6] == bytes.fromhex('71 00 d2 d1 00 00')
+dex1[0x33751e : 0x33751e + 6] = bytes.fromhex('00 00 00 00 00 00') # NOP QueueFile.perform call
+print("Applied Anti-Rebrand Sabotage suppression patch (yyy7) in classes.dex")
 
 dex1[12:32] = hashlib.sha1(dex1[32:]).digest()
 dex1[8:12] = struct.pack("<I", zlib.adler32(dex1[12:]) & 0xFFFFFFFF)
@@ -356,8 +411,49 @@ print("Applied SettingsActivity single emerald green NfGram button in classes7.d
 dex7[12:32] = hashlib.sha1(dex7[32:]).digest()
 dex7[8:12] = struct.pack("<I", zlib.adler32(dex7[12:]) & 0xFFFFFFFF)
 
+# -------------------------------------------------------------
+# 4. Patch classes3.dex: Remove LaunchActivity anti-fork calls to yyy7
+# -------------------------------------------------------------
+assert dex3[0x50af1a : 0x50af1a + 6] == bytes.fromhex('71 00 2b 95 00 00')
+dex3[0x50af1a : 0x50af1a + 6] = bytes.fromhex('00 00 00 00 00 00') # NOP invoke-static yyy7.o
+
+assert dex3[0x50b1e6 : 0x50b1e6 + 6] == bytes.fromhex('71 10 2c 95 05 00')
+dex3[0x50b1e6 : 0x50b1e6 + 6] = bytes.fromhex('00 00 00 00 00 00') # NOP invoke-static yyy7.vvv
+print("Applied LaunchActivity yyy7 caller suppression in classes3.dex")
+
+dex3[12:32] = hashlib.sha1(dex3[32:]).digest()
+dex3[8:12] = struct.pack("<I", zlib.adler32(dex3[12:]) & 0xFFFFFFFF)
+
+# -------------------------------------------------------------
+# 5. Patch classes6.dex: Neutralize CleanUpTask & QueueFile (Fake OutOfMemoryError bomb)
+# -------------------------------------------------------------
+assert dex6[0x1c7fd0 : 0x1c7fd0 + 2] == bytes.fromhex('62 00')
+dex6[0x1c7fd0 : 0x1c7fd0 + 2] = bytes.fromhex('0e 00') # CleanUpTask.p1 -> return-void
+
+assert dex6[0x1c7fec : 0x1c7fec + 2] == bytes.fromhex('71 00')
+dex6[0x1c7fec : 0x1c7fec + 2] = bytes.fromhex('0e 00') # CleanUpTask.p2 -> return-void
+
+assert dex6[0x1c800c : 0x1c800c + 6] == bytes.fromhex('71 00 07 16 00 00')
+dex6[0x1c800c : 0x1c800c + 2] = bytes.fromhex('0e 00') # CleanUpTask.resolve -> return-void
+
+assert dex6[0x203590 : 0x203590 + 2] == bytes.fromhex('71 00')
+dex6[0x203590 : 0x203590 + 2] = bytes.fromhex('0e 00') # QueueFile.$r8$lambda -> return-void
+
+assert dex6[0x2035f4 : 0x2035f4 + 2] == bytes.fromhex('71 00')
+dex6[0x2035f4 : 0x2035f4 + 2] = bytes.fromhex('0e 00') # QueueFile.enqueueCheck -> return-void
+
+assert dex6[0x20363c : 0x20363c + 2] == bytes.fromhex('71 00')
+dex6[0x20363c : 0x20363c + 2] = bytes.fromhex('0e 00') # QueueFile.perform -> return-void
+
+assert dex6[0x203670 : 0x203670 + 2] == bytes.fromhex('71 00')
+dex6[0x203670 : 0x203670 + 2] = bytes.fromhex('0e 00') # QueueFile.resolve2 -> return-void
+print("Applied CleanUpTask & QueueFile fake OutOfMemoryError bomb suppression in classes6.dex")
+
+dex6[12:32] = hashlib.sha1(dex6[32:]).digest()
+dex6[8:12] = struct.pack("<I", zlib.adler32(dex6[12:]) & 0xFFFFFFFF)
+
 # Verify patched DEX files
-for name, dex_data in [("classes.dex", dex1), ("classes4.dex", dex4), ("classes7.dex", dex7)]:
+for name, dex_data in [("classes.dex", dex1), ("classes3.dex", dex3), ("classes4.dex", dex4), ("classes6.dex", dex6), ("classes7.dex", dex7)]:
     tmp_path = f"tmp_{name}"
     with open(tmp_path, "wb") as f: f.write(dex_data)
     res = subprocess.run([DEXDUMP, "-c", tmp_path], capture_output=True, text=True)
@@ -376,10 +472,10 @@ manifest = manifest.replace(old_pkg_u16, new_pkg_u16)
 
 # Bump versionCode from 72379 to 72389
 old_vc = struct.pack("<I", 72379)
-new_vc = struct.pack("<I", 72399)
+new_vc = struct.pack("<I", 72401)
 assert manifest.count(old_vc) == 1
 manifest = manifest.replace(old_vc, new_vc)
-print("Bumped versionCode to 72399 in AndroidManifest.xml")
+print("Bumped versionCode to 72401 in AndroidManifest.xml")
 
 print("=== STEP 3: Patch resources.arsc ===")
 arsc_pkg_count = arsc.count(old_pkg_u16)
@@ -561,29 +657,56 @@ with zipfile.ZipFile(VANILLA_APK, "r") as zin:
         new_text = base_text.replace("</resources>", insert_line)
         xml_replacements[xml_path] = new_text.encode("utf-8")
 
-print("=== STEP 6: Repack APK ===")
-unaligned_apk = os.path.join(BASE_DIR, "Tools", "nfgram_unaligned.apk")
-if os.path.exists(unaligned_apk):
-    os.remove(unaligned_apk)
+print("=== STEP 6: Repack APK (Universal & arm64) ===")
+unaligned_universal = os.path.join(BASE_DIR, "Tools", "nfgram_unaligned_universal.apk")
+unaligned_arm64 = os.path.join(BASE_DIR, "Tools", "nfgram_unaligned_arm64.apk")
 
-with zipfile.ZipFile(VANILLA_APK, "r") as zin, zipfile.ZipFile(unaligned_apk, "w") as zout:
+for p in [unaligned_universal, unaligned_arm64]:
+    if os.path.exists(p): os.remove(p)
+
+with zipfile.ZipFile(VANILLA_APK, "r") as zin, \
+     zipfile.ZipFile(unaligned_universal, "w") as z_uni, \
+     zipfile.ZipFile(unaligned_arm64, "w") as z_arm:
+
+    def write_to(zout, item, data=None):
+        c = copy.copy(item)
+        if data is None:
+            data = zin.read(item.filename)
+        zout.writestr(c, data, compress_type=c.compress_type)
+
     for item in zin.infolist():
         if item.filename.startswith("META-INF/") and (item.filename.endswith(".SF") or item.filename.endswith(".RSA") or item.filename.endswith(".MF")):
             continue
+
+        is_v7a = "armeabi-v7a" in item.filename
+
         if item.filename == "classes.dex":
-            zout.writestr(item, dex1)
+            write_to(z_uni, item, dex1)
+            write_to(z_arm, item, dex1)
+        elif item.filename == "classes3.dex":
+            write_to(z_uni, item, dex3)
+            write_to(z_arm, item, dex3)
         elif item.filename == "classes4.dex":
-            zout.writestr(item, dex4)
+            write_to(z_uni, item, dex4)
+            write_to(z_arm, item, dex4)
+        elif item.filename == "classes6.dex":
+            write_to(z_uni, item, dex6)
+            write_to(z_arm, item, dex6)
         elif item.filename == "classes7.dex":
-            zout.writestr(item, dex7)
+            write_to(z_uni, item, dex7)
+            write_to(z_arm, item, dex7)
         elif item.filename == "AndroidManifest.xml":
-            zout.writestr(item, manifest)
+            write_to(z_uni, item, manifest)
+            write_to(z_arm, item, manifest)
         elif item.filename == "resources.arsc":
-            zout.writestr(item, final_arsc)
+            write_to(z_uni, item, final_arsc)
+            write_to(z_arm, item, final_arsc)
         elif item.filename in icon_replacements:
-            zout.writestr(item, icon_replacements[item.filename])
+            write_to(z_uni, item, icon_replacements[item.filename])
+            write_to(z_arm, item, icon_replacements[item.filename])
         elif item.filename in xml_replacements:
-            zout.writestr(item, xml_replacements[item.filename])
+            write_to(z_uni, item, xml_replacements[item.filename])
+            write_to(z_arm, item, xml_replacements[item.filename])
         elif item.filename == "lib/arm64-v8a/libtmessages.49.so":
             so_data = bytearray(zin.read(item.filename))
             assert so_data[0x62f3ec : 0x62f3ec + 4] == bytes.fromhex("ff c3 01 d1")
@@ -592,85 +715,121 @@ with zipfile.ZipFile(VANILLA_APK, "r") as zin, zipfile.ZipFile(unaligned_apk, "w
             so_data[0x1375fb0 : 0x1375fb0 + 8] = bytes.fromhex("e0 03 1f 2a c0 03 5f d6") # mov w0, wzr; ret
             assert so_data[0x1445e04 : 0x1445e04 + 8] == bytes.fromhex("09 01 09 aa e8 03 1f 2a")
             so_data[0x1445e04 : 0x1445e04 + 8] = bytes.fromhex("e0 03 1f 2a c0 03 5f d6") # mov w0, wzr; ret
-            zout.writestr(item, so_data, compress_type=item.compress_type)
-            print("Patched lib/arm64-v8a/libtmessages.49.so: LSPlant hooks & NativeCrashHandler neutralized")
+            write_to(z_uni, item, so_data)
+            write_to(z_arm, item, so_data)
         elif item.filename == "lib/armeabi-v7a/libtmessages.49.so":
             so_data = bytearray(zin.read(item.filename))
             assert so_data[0x322fa0 : 0x322fa0 + 4] == bytes.fromhex("f0 4f 2d e9")
             so_data[0x322fa0 : 0x322fa0 + 4] = bytes.fromhex("1e ff 2f e1") # bx lr
             assert so_data[0x9c2ec8 : 0x9c2ec8 + 4] == bytes.fromhex("f0 b5 03 af")
             so_data[0x9c2ec8 : 0x9c2ec8 + 4] = bytes.fromhex("00 20 70 47") # movs r0, #0; bx lr
-            zout.writestr(item, so_data, compress_type=item.compress_type)
-            print("Patched lib/armeabi-v7a/libtmessages.49.so: LSPlant hooks & NativeCrashHandler neutralized")
+            write_to(z_uni, item, so_data)
+            # omitted from arm64
         else:
-            data = zin.read(item.filename)
-            zout.writestr(item, data, compress_type=item.compress_type)
+            write_to(z_uni, item)
+            if not is_v7a:
+                write_to(z_arm, item)
 
     # Inject classes9.dex for NfGramGithubUpdater
-    zout.writestr("classes9.dex", dex9, compress_type=zipfile.ZIP_DEFLATED)
-    print("Injected classes9.dex (NfGramGithubUpdater) into APK root")
+    z_uni.writestr("classes9.dex", dex9, compress_type=zipfile.ZIP_DEFLATED)
+    z_arm.writestr("classes9.dex", dex9, compress_type=zipfile.ZIP_DEFLATED)
+    print("Injected classes9.dex (NfGramGithubUpdater) into APK roots")
 
-print(f"Created unaligned APK: {unaligned_apk} ({os.path.getsize(unaligned_apk)} bytes)")
+print(f"Created unaligned universal: {os.path.getsize(unaligned_universal) / 1024 / 1024:.1f} MB")
+print(f"Created unaligned arm64: {os.path.getsize(unaligned_arm64) / 1024 / 1024:.1f} MB")
 
-print("=== STEP 7: Zipalign APK ===")
-aligned_apk = os.path.join(BASE_DIR, "Tools", "nfgram_aligned.apk")
-if os.path.exists(aligned_apk):
-    os.remove(aligned_apk)
+print("=== STEP 7: Zipalign APKs ===")
+aligned_universal = os.path.join(BASE_DIR, "Tools", "nfgram_aligned.apk")
+aligned_arm64 = os.path.join(BASE_DIR, "Tools", "nfgram_arm64_aligned.apk")
+telegram_aligned = os.path.join(BASE_DIR, "Tools", "nfgram_telegram_aligned.apk")
 
-res = subprocess.run([ZIPALIGN, "-p", "-f", "4", unaligned_apk, aligned_apk], capture_output=True, text=True)
-if res.returncode != 0:
-    print("Zipalign error:", res.stderr)
-    exit(1)
-print(f"Zipalign succeeded: {aligned_apk} ({os.path.getsize(aligned_apk)} bytes)")
+for p in [aligned_universal, aligned_arm64, telegram_aligned]:
+    if os.path.exists(p): os.remove(p)
 
-print("=== STEP 8: Sign APK with Keystore ===")
-cmd_sign = [
-    "java", "-Xms64m", "-Xmx512m", "-XX:+UseSerialGC", "-jar", APKSIGNER_JAR,
-    "sign",
-    "--ks", KEYSTORE,
-    "--ks-pass", "pass:nfgram",
-    "--key-pass", "pass:nfgram",
-    "--ks-key-alias", "nfgram",
-    "--v1-signing-enabled", "true",
-    "--v2-signing-enabled", "true",
-    "--v3-signing-enabled", "true",
-    "--min-sdk-version", "21",
-    aligned_apk
-]
-res = subprocess.run(cmd_sign, capture_output=True, text=True)
-if res.returncode != 0:
-    print("Apksigner error:", res.stderr)
-    exit(1)
-print("Apksigner signing succeeded!")
+res = subprocess.run([ZIPALIGN, "-p", "-f", "4", unaligned_universal, aligned_universal], capture_output=True, text=True)
+if res.returncode != 0: raise RuntimeError(f"Zipalign universal error: {res.stderr}")
+res = subprocess.run([ZIPALIGN, "-p", "-f", "4", unaligned_arm64, aligned_arm64], capture_output=True, text=True)
+if res.returncode != 0: raise RuntimeError(f"Zipalign arm64 error: {res.stderr}")
+res = subprocess.run([ZIPALIGN, "-p", "-f", "4", unaligned_universal, telegram_aligned], capture_output=True, text=True)
+if res.returncode != 0: raise RuntimeError(f"Zipalign telegram error: {res.stderr}")
 
-print("=== STEP 9: Verify Signature and Badging ===")
-cmd_verify = [
-    "java", "-Xms64m", "-Xmx512m", "-XX:+UseSerialGC", "-jar", APKSIGNER_JAR,
-    "verify", "--verbose", "--print-certs", aligned_apk
-]
-res_sig = subprocess.run(cmd_verify, capture_output=True, text=True)
-for l in res_sig.stdout.splitlines():
-    if "Verified" in l or "Signer #1 certificate DN" in l:
-        print("  ", l)
+print(f"Zipalign succeeded: universal ({os.path.getsize(aligned_universal) / 1024 / 1024:.1f} MB), arm64 ({os.path.getsize(aligned_arm64) / 1024 / 1024:.1f} MB)")
 
-res_badge = subprocess.run([AAPT, "dump", "badging", aligned_apk], capture_output=True, text=True)
-for l in res_badge.stdout.splitlines():
-    if "package:" in l or "application-label:" in l or "application-icon" in l:
-        print("  ", l)
+print("=== STEP 8: Sign APKs ===")
+def sign_apk(apk_path, ks, ks_pass, key_alias):
+    cmd = [
+        "java", "-Xms64m", "-Xmx512m", "-XX:+UseSerialGC", "-jar", APKSIGNER_JAR,
+        "sign",
+        "--ks", ks,
+        "--ks-pass", f"pass:{ks_pass}",
+        "--key-pass", f"pass:{ks_pass}",
+        "--ks-key-alias", key_alias,
+        "--v1-signing-enabled", "true",
+        "--v2-signing-enabled", "true",
+        "--v3-signing-enabled", "true",
+        "--min-sdk-version", "21",
+        apk_path
+    ]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"Sign error on {apk_path}: {r.stderr}")
+
+telegram_keystore = os.path.join(BASE_DIR, "TMessagesProj", "config", "release.keystore")
+
+sign_apk(aligned_universal, KEYSTORE, KEYSTORE_PASS, "nfgram")
+print("Signed universal APK with NfGram key")
+sign_apk(aligned_arm64, KEYSTORE, KEYSTORE_PASS, "nfgram")
+print("Signed arm64 APK with NfGram key")
+sign_apk(telegram_aligned, telegram_keystore, "android", "androidkey")
+print("Signed telegramkey APK with Telegram key")
+
+print("=== STEP 9: Verify Signatures and Badging ===")
+for title, p in [("Universal", aligned_universal), ("ARM64", aligned_arm64), ("TelegramKey", telegram_aligned)]:
+    res_badge = subprocess.run([AAPT, "dump", "badging", p], capture_output=True, text=True)
+    for l in res_badge.stdout.splitlines():
+        if "package:" in l or "native-code:" in l:
+            print(f"  [{title}] {l}")
+
+with open(aligned_universal, "rb") as f: sha_uni = hashlib.sha256(f.read()).hexdigest()
+with open(aligned_arm64, "rb") as f: sha_arm = hashlib.sha256(f.read()).hexdigest()
+with open(telegram_aligned, "rb") as f: sha_tg = hashlib.sha256(f.read()).hexdigest()
+
+print("\n" + "=" * 65)
+print("RELEASE SHA-256 CHECKSUMS:")
+print(f"  {sha_arm}  NfGram-13.1.1-arm64.apk")
+print(f"  {sha_uni}  NfGram-13.1.1-universal.apk")
+print(f"  {sha_tg}  NfGram-13.1.1-telegramkey.apk")
+print("=" * 65 + "\n")
 
 print("=== STEP 10: Deploy to destination paths ===")
-destinations = [
-    OUTPUT_APK_PROJECT,
-    OUTPUT_APK_DESKTOP,
-    OUTPUT_APK_NFGRAM,
+dest_dirs = [
+    BASE_DIR,
+    os.path.join(os.environ["USERPROFILE"], "Desktop"),
+    os.path.join(os.environ["USERPROFILE"], "Downloads", "AyuGram Desktop"),
 ]
-for dst in destinations:
-    try:
-        dst_dir = os.path.dirname(dst)
-        if os.path.exists(dst_dir):
-            shutil.copy2(aligned_apk, dst)
-            print(f"Deployed: {dst}")
-    except Exception as e:
-        print(f"Warning deploying to {dst}: {e}")
 
-print("ALL DONE! BUILD COMPLETED 100% SUCCESSFULLY!")
+for d in dest_dirs:
+    if not os.path.exists(d): continue
+    try:
+        p_arm = os.path.join(d, "NfGram-13.1.1-arm64.apk")
+        p_uni = os.path.join(d, "NfGram-13.1.1-universal.apk")
+        p_tg = os.path.join(d, "NfGram-13.1.1-telegramkey.apk")
+
+        shutil.copy2(aligned_arm64, p_arm)
+        shutil.copy2(aligned_universal, p_uni)
+        shutil.copy2(telegram_aligned, p_tg)
+
+        with open(p_arm + ".sha256", "w", encoding="utf-8") as f: f.write(f"{sha_arm}  {os.path.basename(p_arm)}\n")
+        with open(p_uni + ".sha256", "w", encoding="utf-8") as f: f.write(f"{sha_uni}  {os.path.basename(p_uni)}\n")
+        with open(p_tg + ".sha256", "w", encoding="utf-8") as f: f.write(f"{sha_tg}  {os.path.basename(p_tg)}\n")
+
+        with open(os.path.join(d, "sha256.txt"), "w", encoding="utf-8") as f:
+            f.write(f"{sha_arm}  NfGram-13.1.1-arm64.apk\n")
+            f.write(f"{sha_uni}  NfGram-13.1.1-universal.apk\n")
+            f.write(f"{sha_tg}  NfGram-13.1.1-telegramkey.apk\n")
+
+        print(f"Deployed all releases to {d}")
+    except Exception as e:
+        print(f"Warning deploying to {d}: {e}")
+
+print("ALL DONE! DUAL ARM64 + UNIVERSAL BUILD COMPLETED 100% SUCCESSFULLY!")

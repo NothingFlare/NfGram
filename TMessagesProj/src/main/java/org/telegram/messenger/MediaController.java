@@ -6,6 +6,8 @@
 
 package org.telegram.messenger;
 
+import com.radolyn.ayugram.AyuConfig;
+
 import android.Manifest;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -1544,6 +1546,9 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             }
         }
         if (send) {
+            if (!AyuConfig.sendReadPackets) {
+                return;
+            }
             if (lastSecretChat != null) {
                 SecretChatHelper.getInstance(lastChatAccount).sendScreenshotMessage(lastSecretChat, lastChatVisibleMessages, null);
             } else {
@@ -1711,7 +1716,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     }
 
     private boolean isNearToSensor(float value) {
-        return value < 5.0f && value != proximitySensor.getMaximumRange();
+        return value < 2.0f && value != proximitySensor.getMaximumRange();
     }
 
     public boolean isRecordingOrListeningByProximity() {
@@ -1894,7 +1899,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 }*/
             }
             previousAccValue = val;
-            accelerometerVertical = gravityFast[1] > 2.5f && Math.abs(gravityFast[2]) < 4.0f && Math.abs(gravityFast[0]) > 1.5f;
+            accelerometerVertical = gravityFast[1] > 5.5f && Math.abs(gravityFast[2]) < 4.0f;
             /*if (BuildVars.LOGS_ENABLED && BuildVars.DEBUG_PRIVATE_VERSION) {
                 FileLog.d(accelerometerVertical + "    val = " + val + " acc (" + linearAcceleration[0] + ", " + linearAcceleration[1] + ", " + linearAcceleration[2] + ") grav (" + gravityFast[0] + ", " + gravityFast[1] + ", " + gravityFast[2] + ")");
             }*/
@@ -1962,7 +1967,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             raisedToTop = 0;
             raisedToTopSign = 0;
             countLess = 0;
-        } else if (proximityTouched && ((accelerometerSensor == null || linearSensor == null) && gravitySensor == null) && !VoIPService.isAnyKindOfCallActive()) {
+        } else if (proximityTouched && (accelerometerSensor == null && linearSensor == null && gravitySensor == null) && !VoIPService.isAnyKindOfCallActive()) {
             if (playingMessageObject != null && !ApplicationLoader.mainInterfacePaused && allowListening) {
                 if (!useFrontSpeaker && !manualRecording && !forbidRaiseToListen()) {
                     if (BuildVars.LOGS_ENABLED) {

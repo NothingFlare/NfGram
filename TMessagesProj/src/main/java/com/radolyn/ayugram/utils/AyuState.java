@@ -18,8 +18,7 @@ public class AyuState {
     private static final LongSparseArray<ArrayList<Integer>> deletePermitted = new LongSparseArray<>();
 
     public static void setAllowReadPacket(boolean val, int resetAfter) {
-        allowReadPacket.val = val;
-        allowReadPacket.resetAfter = resetAfter;
+        allowReadPacket.set(val, resetAfter);
     }
 
     public static boolean getAllowReadPacket() {
@@ -27,8 +26,7 @@ public class AyuState {
     }
 
     public static void setAutomaticallyScheduled(boolean val, int resetAfter) {
-        automaticallyScheduled.val = val;
-        automaticallyScheduled.resetAfter = resetAfter;
+        automaticallyScheduled.set(val, resetAfter);
     }
 
     public static boolean getAutomaticallyScheduled() {
@@ -36,8 +34,7 @@ public class AyuState {
     }
 
     public static void setHideSelection(boolean val, int resetAfter) {
-        hideSelection.val = val;
-        hideSelection.resetAfter = resetAfter;
+        hideSelection.set(val, resetAfter);
     }
 
     public static boolean getHideSelection() {
@@ -45,30 +42,36 @@ public class AyuState {
     }
 
     public static void permitDeleteMessage(long dialogId, int messageId) {
-        var list = deletePermitted.get(dialogId);
-        if (list == null) {
-            list = new ArrayList<>();
-            deletePermitted.put(dialogId, list);
-        }
+        synchronized (deletePermitted) {
+            var list = deletePermitted.get(dialogId);
+            if (list == null) {
+                list = new ArrayList<>();
+                deletePermitted.put(dialogId, list);
+            }
 
-        list.add(messageId);
+            list.add(messageId);
+        }
     }
 
     public static boolean isDeletePermitted(long dialogId, int messageId) {
-        var list = deletePermitted.get(dialogId);
-        if (list == null) {
-            return false;
-        }
+        synchronized (deletePermitted) {
+            var list = deletePermitted.get(dialogId);
+            if (list == null) {
+                return false;
+            }
 
-        return list.contains(messageId);
+            return list.contains(messageId);
+        }
     }
 
     public static void messageDeleted(long dialogId, int messageId) {
-        var list = deletePermitted.get(dialogId);
-        if (list == null) {
-            return;
-        }
+        synchronized (deletePermitted) {
+            var list = deletePermitted.get(dialogId);
+            if (list == null) {
+                return;
+            }
 
-        list.remove((Object) messageId);
+            list.remove((Object) messageId);
+        }
     }
 }

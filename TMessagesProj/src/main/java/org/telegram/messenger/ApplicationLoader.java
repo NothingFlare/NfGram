@@ -340,32 +340,47 @@ public class ApplicationLoader extends Application {
             enabled = MessagesController.getMainSettings(UserConfig.selectedAccount).getBoolean("keepAliveService", false);
         }
         if (enabled) {
-            if (AyuConfig.keepAliveService) {
-                Log.d("TFOSS", "Trying to start push service every minute");
-                AlarmManager am = (AlarmManager) applicationContext.getSystemService(Context.ALARM_SERVICE);
-                Intent i = new Intent(applicationContext, NotificationsService.class);
-                pendingIntent = PendingIntent.getBroadcast(applicationContext, 0, i, PendingIntent.FLAG_MUTABLE);
-
-                am.cancel(pendingIntent);
-                am.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), 60000, pendingIntent);
+            // Thermal & battery protection: Cancel any legacy 60-second wake alarms that caused overheating and crashes while charging
+            try {
+                if (pendingIntent != null) {
+                    AlarmManager am = (AlarmManager) applicationContext.getSystemService(Context.ALARM_SERVICE);
+                    if (am != null) {
+                        am.cancel(pendingIntent);
+                    }
+                    pendingIntent = null;
+                }
+            } catch (Throwable ignore) {
             }
 
             try {
                 Log.d("TFOSS", "Starting push service...");
-                applicationContext.startService(new Intent(applicationContext, NotificationsService.class));
+                Intent serviceIntent = new Intent(applicationContext, NotificationsService.class);
+                if (AyuConfig.keepAliveService && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    applicationContext.startForegroundService(serviceIntent);
+                } else {
+                    applicationContext.startService(serviceIntent);
+                }
             } catch (Throwable ignore) {
                 Log.d("TFOSS", "Failed to start push service");
             }
         } else {
-            applicationContext.stopService(new Intent(applicationContext, NotificationsService.class));
+            try {
+                applicationContext.stopService(new Intent(applicationContext, NotificationsService.class));
+            } catch (Throwable ignore) {
+            }
 
-            if (AyuConfig.keepAliveService) {
-                PendingIntent pintent = PendingIntent.getService(applicationContext, 0, new Intent(applicationContext, NotificationsService.class), PendingIntent.FLAG_MUTABLE);
+            try {
+                int flags = Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
+                PendingIntent pintent = PendingIntent.getService(applicationContext, 0, new Intent(applicationContext, NotificationsService.class), flags);
                 AlarmManager alarm = (AlarmManager) applicationContext.getSystemService(Context.ALARM_SERVICE);
-                alarm.cancel(pintent);
-                if (pendingIntent != null) {
-                    alarm.cancel(pendingIntent);
+                if (alarm != null) {
+                    alarm.cancel(pintent);
+                    if (pendingIntent != null) {
+                        alarm.cancel(pendingIntent);
+                        pendingIntent = null;
+                    }
                 }
+            } catch (Throwable ignore) {
             }
         }
     }

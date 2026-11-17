@@ -39,7 +39,7 @@ public class FileUploadOperation {
     private static final int minUploadChunkSlowNetworkSize = 32;
     private static final int initialRequestsCount = 8;
     private static final int initialRequestsSlowNetworkCount = 1;
-    private static final int maxUploadingKBytes = 1024 * 2;
+    private static final int maxUploadingKBytes = 1024 * 4;
     private static final int maxUploadingSlowNetworkKBytes = 32;
 
     private int maxRequestsCount;

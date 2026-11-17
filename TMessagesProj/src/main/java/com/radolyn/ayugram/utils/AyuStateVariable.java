@@ -9,8 +9,15 @@ package com.radolyn.ayugram.utils;
 public class AyuStateVariable {
     private final Object sync = new Object();
 
-    public boolean val;
-    public int resetAfter;
+    public volatile boolean val;
+    public volatile int resetAfter;
+
+    public void set(boolean val, int resetAfter) {
+        synchronized (sync) {
+            this.val = val;
+            this.resetAfter = resetAfter;
+        }
+    }
 
     public boolean process() {
         synchronized (sync) {

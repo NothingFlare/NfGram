@@ -19,6 +19,7 @@ import org.telegram.ui.Components.BulletinFactory;
 
 public class AyuMessageCell extends ChatMessageCell {
     private EditedMessage editedMessage;
+    private String currentThumbPath;
 
     public AyuMessageCell(Context context, Activity activity, BaseFragment fragment) {
         super(context, fragment != null ? fragment.getCurrentAccount() : org.telegram.messenger.UserConfig.selectedAccount);
@@ -38,7 +39,7 @@ public class AyuMessageCell extends ChatMessageCell {
             }
 
             // ..open media otherwise
-            if (!TextUtils.isEmpty(editedMessage.mediaPath)) {
+            if (!TextUtils.isEmpty(editedMessage.mediaPath) && activity != null && !activity.isFinishing() && getMessageObject() != null) {
                 AndroidUtilities.openForView(getMessageObject(), activity, null, false);
             }
         });
@@ -53,21 +54,38 @@ public class AyuMessageCell extends ChatMessageCell {
 
     public void setEditedMessage(EditedMessage editedMessage) {
         this.editedMessage = editedMessage;
+        updateThumbnail();
+    }
+
+    private void updateThumbnail() {
+        if (editedMessage != null && !TextUtils.isEmpty(editedMessage.hqThumbPath)) {
+            if (!TextUtils.equals(currentThumbPath, editedMessage.hqThumbPath)) {
+                currentThumbPath = editedMessage.hqThumbPath;
+                if (getPhotoImage() != null) {
+                    getPhotoImage().setImage(editedMessage.hqThumbPath, null, null, null, 0);
+                }
+            }
+        } else {
+            currentThumbPath = null;
+        }
     }
 
     private void copyText(BaseFragment fragment) {
         if (editedMessage != null && !TextUtils.isEmpty(editedMessage.text)) {
             AndroidUtilities.addToClipboard(editedMessage.text);
-            BulletinFactory.of(fragment).createCopyBulletin(LocaleController.getString("MessageCopied", R.string.MessageCopied)).show();
+            if (fragment != null && fragment.getParentActivity() != null && !fragment.getParentActivity().isFinishing()) {
+                try {
+                    BulletinFactory.of(fragment).createCopyBulletin(LocaleController.getString("MessageCopied", R.string.MessageCopied)).show();
+                } catch (Throwable ignored) {}
+            }
         }
     }
 
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
-
-        if (editedMessage != null && !TextUtils.isEmpty(editedMessage.hqThumbPath)) {
-            getPhotoImage().setImage(editedMessage.hqThumbPath, null, null, null, 0);
+        if (changed) {
+            updateThumbnail();
         }
     }
 }

@@ -371,7 +371,9 @@ public class MediaCodecVideoConvertor {
                 int videoIndex = MediaController.findTrack(extractor, false);
                 int audioIndex = bitrate != -1 && !muted && volume > 0 ? MediaController.findTrack(extractor, true) : -1;
                 boolean needConvertVideo = false;
-                if (videoIndex >= 0 && !extractor.getTrackFormat(videoIndex).getString(MediaFormat.KEY_MIME).equals(MediaController.VIDEO_MIME_TYPE)) {
+                String srcMime = videoIndex >= 0 ? extractor.getTrackFormat(videoIndex).getString(MediaFormat.KEY_MIME) : "";
+                boolean isSupportedPassthrough = MediaController.VIDEO_MIME_TYPE.equals(srcMime) || "video/hevc".equals(srcMime);
+                if (videoIndex >= 0 && !isSupportedPassthrough) {
                     needConvertVideo = true;
                 }
 
@@ -911,7 +913,8 @@ public class MediaCodecVideoConvertor {
                     movie.setCacheFile(cacheFile);
                     movie.setRotation(0);
                     movie.setSize(resultWidth, resultHeight);
-                    muxer = new Muxer(new MP4Builder().createMovie(movie, isSecret, false));
+                    boolean isHevcPassthrough = "video/hevc".equals(srcMime);
+                    muxer = new Muxer(new MP4Builder().createMovie(movie, isSecret, isHevcPassthrough));
                     readAndWriteTracks(extractor, muxer, info, startTime, endTime, duration, cacheFile, bitrate != -1 && !muted);
                 }
             }
@@ -1339,41 +1342,50 @@ public class MediaCodecVideoConvertor {
         kernelRadius = Math.min(maxKernelRadius, kernelRadius);
         FileLog.d("source size " + srcWidth + "x" + srcHeight + "    dest size " + dstWidth + dstHeight + "   kernelRadius " + kernelRadius);
         if (external) {
+            if (kernelRadius <= 0) {
+                return "#extension GL_OES_EGL_image_external : require\n" +
+                        "precision mediump float;\n" +
+                        "varying vec2 vTextureCoord;\n" +
+                        "uniform samplerExternalOES sTexture;\n" +
+                        "void main() {\n" +
+                        "gl_FragColor = texture2D(sTexture, vTextureCoord);\n" +
+                        "}\n";
+            }
             return "#extension GL_OES_EGL_image_external : require\n" +
                     "precision mediump float;\n" +
                     "varying vec2 vTextureCoord;\n" +
-                    "const float kernel = " + kernelRadius + ".0;\n" +
                     "const float pixelSizeX = 1.0 / " + srcWidth + ".0;\n" +
                     "const float pixelSizeY = 1.0 / " + srcHeight + ".0;\n" +
                     "uniform samplerExternalOES sTexture;\n" +
                     "void main() {\n" +
-                    "vec3 accumulation = vec3(0);\n" +
-                    "vec3 weightsum = vec3(0);\n" +
-                    "for (float x = -kernel; x <= kernel; x++){\n" +
-                    "   for (float y = -kernel; y <= kernel; y++){\n" +
-                    "       accumulation += texture2D(sTexture, vTextureCoord + vec2(x * pixelSizeX, y * pixelSizeY)).xyz;\n" +
-                    "       weightsum += 1.0;\n" +
-                    "   }\n" +
-                    "}\n" +
-                    "gl_FragColor = vec4(accumulation / weightsum, 1.0);\n" +
+                    "vec4 c = texture2D(sTexture, vTextureCoord);\n" +
+                    "vec4 c1 = texture2D(sTexture, vTextureCoord + vec2(-pixelSizeX * 0.75, -pixelSizeY * 0.75));\n" +
+                    "vec4 c2 = texture2D(sTexture, vTextureCoord + vec2(pixelSizeX * 0.75, -pixelSizeY * 0.75));\n" +
+                    "vec4 c3 = texture2D(sTexture, vTextureCoord + vec2(-pixelSizeX * 0.75, pixelSizeY * 0.75));\n" +
+                    "vec4 c4 = texture2D(sTexture, vTextureCoord + vec2(pixelSizeX * 0.75, pixelSizeY * 0.75));\n" +
+                    "gl_FragColor = (c * 2.0 + c1 + c2 + c3 + c4) / 6.0;\n" +
                     "}\n";
         } else {
+            if (kernelRadius <= 0) {
+                return "precision mediump float;\n" +
+                        "varying vec2 vTextureCoord;\n" +
+                        "uniform sampler2D sTexture;\n" +
+                        "void main() {\n" +
+                        "gl_FragColor = texture2D(sTexture, vTextureCoord);\n" +
+                        "}\n";
+            }
             return "precision mediump float;\n" +
                     "varying vec2 vTextureCoord;\n" +
-                    "const float kernel = " + kernelRadius + ".0;\n" +
                     "const float pixelSizeX = 1.0 / " + srcHeight + ".0;\n" +
                     "const float pixelSizeY = 1.0 / " + srcWidth + ".0;\n" +
                     "uniform sampler2D sTexture;\n" +
                     "void main() {\n" +
-                    "vec3 accumulation = vec3(0);\n" +
-                    "vec3 weightsum = vec3(0);\n" +
-                    "for (float x = -kernel; x <= kernel; x++){\n" +
-                    "   for (float y = -kernel; y <= kernel; y++){\n" +
-                    "       accumulation += texture2D(sTexture, vTextureCoord + vec2(x * pixelSizeX, y * pixelSizeY)).xyz;\n" +
-                    "       weightsum += 1.0;\n" +
-                    "   }\n" +
-                    "}\n" +
-                    "gl_FragColor = vec4(accumulation / weightsum, 1.0);\n" +
+                    "vec4 c = texture2D(sTexture, vTextureCoord);\n" +
+                    "vec4 c1 = texture2D(sTexture, vTextureCoord + vec2(-pixelSizeX * 0.75, -pixelSizeY * 0.75));\n" +
+                    "vec4 c2 = texture2D(sTexture, vTextureCoord + vec2(pixelSizeX * 0.75, -pixelSizeY * 0.75));\n" +
+                    "vec4 c3 = texture2D(sTexture, vTextureCoord + vec2(-pixelSizeX * 0.75, pixelSizeY * 0.75));\n" +
+                    "vec4 c4 = texture2D(sTexture, vTextureCoord + vec2(pixelSizeX * 0.75, pixelSizeY * 0.75));\n" +
+                    "gl_FragColor = (c * 2.0 + c1 + c2 + c3 + c4) / 6.0;\n" +
                     "}\n";
         }
     }

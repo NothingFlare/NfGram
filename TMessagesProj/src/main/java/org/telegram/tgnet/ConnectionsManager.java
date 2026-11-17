@@ -369,6 +369,43 @@ public class ConnectionsManager extends BaseController {
                 obj.offline = true;
             }
 
+            // don't send screenshot notifications
+            if (!AyuConfig.sendReadPackets && object instanceof TLRPC.TL_messages_sendScreenshotNotification) {
+                if (!AyuState.getAllowReadPacket()) {
+                    try {
+                        if (onCompleteOrig != null) {
+                            onCompleteOrig.run(new TLRPC.TL_updates(), null);
+                        }
+                    } catch (Exception e) {
+                        FileLog.e(e);
+                    }
+                    return;
+                }
+            }
+
+            // don't send stories read status
+            if (!AyuConfig.sendReadPackets &&
+                    (
+                            object instanceof org.telegram.tgnet.tl.TL_stories.TL_stories_readStories ||
+                            object instanceof org.telegram.tgnet.tl.TL_stories.TL_stories_incrementStoryViews
+                    )
+            ) {
+                if (!AyuState.getAllowReadPacket()) {
+                    try {
+                        if (onCompleteOrig != null) {
+                            if (object instanceof org.telegram.tgnet.tl.TL_stories.TL_stories_incrementStoryViews) {
+                                onCompleteOrig.run(new TLRPC.TL_boolTrue(), null);
+                            } else {
+                                onCompleteOrig.run(new TLRPC.Vector(), null);
+                            }
+                        }
+                    } catch (Exception e) {
+                        FileLog.e(e);
+                    }
+                    return;
+                }
+            }
+
             // don't send read status
             if (
                     !AyuConfig.sendReadPackets &&
@@ -377,15 +414,26 @@ public class ConnectionsManager extends BaseController {
                                     object instanceof TLRPC.TL_messages_readEncryptedHistory ||
                                     object instanceof TLRPC.TL_messages_readDiscussion ||
                                     object instanceof TLRPC.TL_messages_readMessageContents ||
+                                    object instanceof TLRPC.TL_messages_readMentions ||
+                                    object instanceof TLRPC.TL_messages_readReactions ||
                                     object instanceof TLRPC.TL_channels_readHistory ||
                                     object instanceof TLRPC.TL_channels_readMessageContents
                             )
             ) {
                 if (!AyuState.getAllowReadPacket()) {
-                    var fakeRes = new TLRPC.TL_messages_affectedMessages();
-                    // IDK if this should be -1 or what, check `TL_messages_readMessageContents` usages
-                    fakeRes.pts = -1;
-                    fakeRes.pts_count = 0;
+                    TLObject fakeRes;
+                    if (object instanceof TLRPC.TL_messages_readMentions || object instanceof TLRPC.TL_messages_readReactions) {
+                        var affected = new TLRPC.TL_messages_affectedHistory();
+                        affected.pts = -1;
+                        affected.pts_count = 0;
+                        affected.offset = 0;
+                        fakeRes = affected;
+                    } else {
+                        var affected = new TLRPC.TL_messages_affectedMessages();
+                        affected.pts = -1;
+                        affected.pts_count = 0;
+                        fakeRes = affected;
+                    }
 
                     try {
                         if (onCompleteOrig != null) {
@@ -427,12 +475,7 @@ public class ConnectionsManager extends BaseController {
                         origOnComplete.run(response, error);
 
                         getMessagesStorage().getDialogMaxMessageId(dialogId, maxId -> {
-                            TLRPC.TL_messages_readHistory request = new TLRPC.TL_messages_readHistory();
-                            request.peer = finalPeer;
-                            request.max_id = maxId;
-
-                            AyuState.setAllowReadPacket(true, 1);
-                            sendRequest(request, (a1, a2) -> {});
+                            AyuGhostUtils.markReadOnServer(currentAccount, maxId, finalPeer);
                         });
                     };
                 }
@@ -811,6 +854,7 @@ public class ConnectionsManager extends BaseController {
                 lastPauseTime = System.currentTimeMillis();
             }
             native_pauseNetwork(currentAccount);
+            getNotificationsController().setLastOnlineFromOtherDevice(0);
         } else {
             if (appPaused) {
                 return;

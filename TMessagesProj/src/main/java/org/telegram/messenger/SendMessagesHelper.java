@@ -1677,6 +1677,9 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
     }
 
     public void sendScreenshotMessage(TLRPC.User user, int messageId, TLRPC.Message resendMessage) {
+        if (!AyuConfig.sendReadPackets) {
+            return;
+        }
         if (user == null || messageId == 0 || user.id == getUserConfig().getClientUserId()) {
             return;
         }

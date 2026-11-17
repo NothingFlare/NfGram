@@ -7,6 +7,7 @@
 package com.radolyn.ayugram.ui;
 
 import android.content.Context;
+import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -42,14 +43,24 @@ public class AyuMessageHistory extends BaseFragment implements NotificationCente
     }
 
     private void updateHistory() {
+        if (messageObject == null) {
+            messages = new ArrayList<>();
+            rowCount = 0;
+            return;
+        }
         var messagesController = AyuMessagesController.getInstance();
-        messages = messagesController.getRevisions(getUserConfig().clientUserId, messageObject.messageOwner.dialog_id, messageObject.messageOwner.id);
+        long dialogId = messageObject.getDialogId();
+        int messageId = messageObject.getId();
+        messages = messagesController.getRevisions(getUserConfig().clientUserId, dialogId, messageId);
+        if (messages == null) {
+            messages = new ArrayList<>();
+        }
         rowCount = messages.size();
     }
 
     @Override
     public View createView(Context context) {
-        String name;
+        String name = null;
         String subtitle = "";
         if (messages != null && !messages.isEmpty()) {
             var firstMsg = messages.get(0);
@@ -59,13 +70,14 @@ public class AyuMessageHistory extends BaseFragment implements NotificationCente
             if (peer == null) {
                 name = "?";
             } else if (peer instanceof TLRPC.User) {
-                name = ((TLRPC.User) peer).first_name;
+                name = UserObject.getUserName((TLRPC.User) peer);
             } else if (peer instanceof TLRPC.Chat) {
                 name = ((TLRPC.Chat) peer).title;
             } else {
                 name = LocaleController.getString("EditsHistoryTitle", R.string.EditsHistoryTitle);
             }
-        } else {
+        }
+        if (TextUtils.isEmpty(name)) {
             name = LocaleController.getString("EditsHistoryTitle", R.string.EditsHistoryTitle);
         }
 
@@ -90,15 +102,7 @@ public class AyuMessageHistory extends BaseFragment implements NotificationCente
 
         listView = new RecyclerListView(context);
         listView.setItemAnimator(null);
-        listView.setLayoutAnimation(null);
-        LinearLayoutManager layoutManager;
-        listView.setLayoutManager(layoutManager = new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false) {
-            @Override
-            public boolean supportsPredictiveItemAnimations() {
-                return false;
-            }
-        });
-        listView.setVerticalScrollBarEnabled(true);
+        listView.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false));
         frameLayout.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         ListAdapter adapter;
         listView.setAdapter(adapter = new AyuMessageHistory.ListAdapter(context));
@@ -115,7 +119,7 @@ public class AyuMessageHistory extends BaseFragment implements NotificationCente
     public boolean onFragmentCreate() {
         super.onFragmentCreate();
 
-        NotificationCenter.getInstance(UserConfig.selectedAccount).addObserver(this, AyuConstants.MESSAGE_EDITED_NOTIFICATION);
+        NotificationCenter.getInstance(currentAccount).addObserver(this, AyuConstants.MESSAGE_EDITED_NOTIFICATION);
 
         return true;
     }
@@ -123,12 +127,18 @@ public class AyuMessageHistory extends BaseFragment implements NotificationCente
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
         if (id == AyuConstants.MESSAGE_EDITED_NOTIFICATION) {
-            var dialogId = (long) args[0];
-            var messageId = (int) args[1];
+            if (args != null && args.length >= 2 && messageObject != null) {
+                var dialogId = (long) args[0];
+                var messageId = (int) args[1];
 
-            if (dialogId == messageObject.messageOwner.dialog_id && messageId == messageObject.messageOwner.id) {
-                updateHistory();
-                listView.getAdapter().notifyDataSetChanged();
+                if (dialogId == messageObject.getDialogId() && messageId == messageObject.getId()) {
+                    AndroidUtilities.runOnUIThread(() -> {
+                        updateHistory();
+                        if (listView != null && listView.getAdapter() != null) {
+                            listView.getAdapter().notifyDataSetChanged();
+                        }
+                    });
+                }
             }
         }
     }
@@ -137,7 +147,7 @@ public class AyuMessageHistory extends BaseFragment implements NotificationCente
     public void onFragmentDestroy() {
         super.onFragmentDestroy();
 
-        NotificationCenter.getInstance(UserConfig.selectedAccount).removeObserver(this, AyuConstants.MESSAGE_EDITED_NOTIFICATION);
+        NotificationCenter.getInstance(currentAccount).removeObserver(this, AyuConstants.MESSAGE_EDITED_NOTIFICATION);
     }
 
     private class ListAdapter extends RecyclerListView.SelectionAdapter {
@@ -164,14 +174,15 @@ public class AyuMessageHistory extends BaseFragment implements NotificationCente
             if (viewType == 1) {
                 view = new AyuMessageCell(context, getParentActivity(), AyuMessageHistory.this);
             } else {
-                view = null;
+                view = new View(context);
+                view.setLayoutParams(new RecyclerView.LayoutParams(0, 0));
             }
             return new RecyclerListView.Holder(view);
         }
 
         @Override
         public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
-            if (holder.getItemViewType() == 1) {
+            if (holder.getItemViewType() == 1 && position >= 0 && messages != null && position < messages.size()) {
                 var ayuMessageDetailCell = (AyuMessageCell) holder.itemView;
 
                 var editedMessage = messages.get(position);
@@ -185,7 +196,7 @@ public class AyuMessageHistory extends BaseFragment implements NotificationCente
 
         @Override
         public int getItemViewType(int position) {
-            return position >= 0 && position < messages.size() ? 1 : 0;
+            return position >= 0 && messages != null && position < messages.size() ? 1 : 0;
         }
 
         private MessageObject createMessageObject(EditedMessage editedMessage) {
@@ -196,6 +207,11 @@ public class AyuMessageHistory extends BaseFragment implements NotificationCente
 
             msg.date = editedMessage.entityCreateDate;
             msg.edit_hide = true;
+
+            // fix media state if available
+            if (msg.media == null && messageObject != null && messageObject.messageOwner != null && messageObject.messageOwner.media != null) {
+                msg.media = messageObject.messageOwner.media;
+            }
 
             // let file be downloaded
             if (editedMessage.documentType == AyuConstants.DOCUMENT_TYPE_FILE && messageObject != null && messageObject.messageOwner != null) {
@@ -208,7 +224,7 @@ public class AyuMessageHistory extends BaseFragment implements NotificationCente
             }
 
             // fix reply state
-            if (messageObject.messageOwner.replyMessage != null) {
+            if (messageObject != null && messageObject.messageOwner != null && messageObject.messageOwner.replyMessage != null) {
                 msg.replyMessage = messageObject.messageOwner.replyMessage;
                 msg.reply_to = messageObject.messageOwner.reply_to;
             }

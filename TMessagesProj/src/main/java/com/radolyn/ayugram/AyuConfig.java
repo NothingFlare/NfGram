@@ -187,10 +187,15 @@ public class AyuConfig {
     }
 
     public static ArrayList<String> getRegexFilters() {
-        var str = preferences.getString("regexFilters", "[]");
-        var arr = new Gson().fromJson(str, String[].class);
-
-        return new ArrayList<>(Arrays.asList(arr));
+        try {
+            var str = preferences.getString("regexFilters", "[]");
+            var arr = new Gson().fromJson(str, String[].class);
+            if (arr != null) {
+                return new ArrayList<>(Arrays.asList(arr));
+            }
+        } catch (Throwable ignore) {
+        }
+        return new ArrayList<>();
     }
 
     public static void addFilter(String text) {
